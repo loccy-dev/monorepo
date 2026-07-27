@@ -1,0 +1,34 @@
+{
+  "title": "Панель управления",
+  "subtitle": "Обзор за {{date}}",
+
+  "kpis": {
+    "visitors": "Посетители",
+    "revenue": "Доход",
+    "conversionRate": "Коэффициент конверсии"
+  },
+
+  "visitorsCount_zero": "сегодня нет посетителей",
+  "visitorsCount_one": "{{count}} посетитель сегодня",
+  "visitorsCount_few": "{{count}} посетителя сегодня",
+  "visitorsCount_many": "{{count}} посетителей сегодня",
+  "visitorsCount_other": "{{count}} посетителей сегодня",
+
+  "greeting": "С возвращением!",
+  "greeting_admin": "С возвращением, Администратор!",
+  "greeting_member": "С возвращением, Участник!",
+
+  "cards": {
+    "sales": {
+      "title": "Продажи",
+      "value": "{{value}}",
+      "trend": {
+        "up": "Рост на {{percent}}%",
+        "down": "Снижение на {{percent}}%"
+      }
+    }
+  },
+
+  "linkForMetric": "Смотрите <1>подробности</1> для <3>{{metric}}</3>.",
+  "poweredBy": "Работает на $t(translation:appName)"
+}

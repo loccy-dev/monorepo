@@ -1,0 +1,59 @@
+// See https://go.microsoft.com/fwlink/?LinkId=733558
+// for the documentation about the tasks.json format
+{
+	"version": "2.0.0",
+	"tasks": [
+    {
+      "label": "watch",
+      "dependsOn": ["npm: watch:tsc - apps/extension", "npm: watch:esbuild - apps/extension"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "never"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "type": "shell",
+      "command": "npm run watch:esbuild",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/extension"
+      },
+      "group": "build",
+      "problemMatcher": "$esbuild-watch",
+      "isBackground": true,
+      "label": "npm: watch:esbuild - apps/extension",
+      "presentation": {
+        "group": "watch",
+        "reveal": "never"
+      }
+    },
+    {
+      "type": "shell",
+      "command": "npm run watch:tsc",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/extension"
+      },
+      "group": "build",
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true,
+      "label": "npm: watch:tsc - apps/extension",
+      "presentation": {
+        "group": "watch",
+        "reveal": "never"
+      }
+    },
+    {
+      "type": "shell",
+      "command": "npm run compile",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/extension"
+      },
+      "group": "build",
+      "label": "npm: compile - apps/extension"
+    }
+	]
+}
+

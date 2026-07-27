@@ -1,0 +1,8 @@
+# TODO
+
+- in AI action request sends only relevant part of styleguide
+- config scaffolding: make sure if framework doesn't support namespaced organization (e.g. vue-i18n), generated translations.{glob|layout} knows about it and invalid candidates excluded
+- [plurals] **Re-enable plural detection/gen + lint.** Gated off: AI (`detectPlural = false` in `translate-source-action.ts`), lint (`if (false && …)` around `checkPluralCompleteness` in `lint.ts`). Problem: relying on ICU/`Intl.PluralRules` over-requires forms — recent CLDR gives fr/it a `many` branch (fires only at exact millions) that the framework runtime never selects → noise on every plural. Redo practically, not ICU-strict: everyday UI strings just need `one`/`other` (fr: 0 & 1 → one, else → other). Detect the app's real plural arity per framework instead of raw CLDR.
+- [framework] **Laravel companion module.** Support both `.php` (namespaced) and `.json` (flat) formats natively. Semi-working, gated off via `DISABLED_FRAMEWORK_IDS` in `packages/shared/src/core/registry.ts` (impl under `packages/shared/src/core/frameworks/`).
+- [framework] **Java Spring Boot companion module.** Semi-working, gated off (same as Laravel).
+- [refactoring] **Share scan logic IDE↔CLI.** `UsageScanner.scanContent` (shared) and `getKeyRanges` (IDE) are the same loop (framework scan → tag → generic-match merge → sort); generic closure byte-identical. Extract `scanSourceContent(content, targets, generic, resolver)`; callers only build targets from their substrate (platform+globs vs resource-service). Bonus: makes deep `handleMatches` cases vitest-testable (no vscode). Then stage 2: shared `analyzeUsages` (group-by-keypath + unused/missing diff) for CLI `lint.checkUsages` + IDE `usage-service`.

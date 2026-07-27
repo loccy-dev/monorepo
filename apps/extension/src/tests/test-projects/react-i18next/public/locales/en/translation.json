@@ -1,0 +1,42 @@
+{
+  "appName": "Loccy",
+  "appDescription": "Translation management tool",
+  "helloFromApp": "Hello from $t(appName)",
+  "welcomeByName": "Welcome, {{name}}!",
+  "welcomeByNameAndPage": "Welcome to the {{page}}, {{name}}!",
+  "loading": "Loading…",
+  
+  "cta": {
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+
+  "item_zero": "no items",
+  "item_one": "You have {{count}} item",
+  "item_other": "You have {{count}} items",
+
+  "context_user": "User",
+  "context_user_male": "Man",
+  "context_user_female": "Woman",
+
+  "context_plural_example_male_one": "{{count}} invite sent by him",
+  "context_plural_example_male_other": "{{count}} invites sent by him",
+
+  "context_plural_example_female_one": "{{count}} invite sent by her",
+  "context_plural_example_female_other": "{{count}} invites sent by her",
+
+  "key_ordinal_one": "{{count}}st person",
+  "key_ordinal_two": "{{count}}nd person",
+  "key_ordinal_few": "{{count}}d person",
+  "key_ordinal_other": "{{count}}th person",
+  "key_male_ordinal_one": "{{count}}st man",
+  "key_male_ordinal_two": "{{count}}nd man",
+  "key_male_ordinal_few": "{{count}}d man",
+  "key_male_ordinal_other": "{{count}}th man",
+  "key_female_ordinal_one": "{{count}}st woman",
+  "key_female_ordinal_two": "{{count}}nd woman",
+  "key_female_ordinal_few": "{{count}}d woman",
+  "key_female_ordinal_other": "{{count}}th woman",
+
+  "array": ["one", "two"]
+}

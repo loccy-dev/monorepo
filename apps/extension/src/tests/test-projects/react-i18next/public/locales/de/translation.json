@@ -1,0 +1,33 @@
+{
+  "appName": "Loccy",
+  "appDescription": "Übersetzungsmanagement-Tool",
+  "helloFromApp": "Hallo von $t(appName)",
+  "welcomeByName": "Willkommen, {{name}}!",
+  "welcomeByNameAndPage": "Willkommen auf der Seite {{page}}, {{name}}!",
+  "loading": "Wird geladen…",
+  
+  "cta": {
+    "save": "Speichern",
+    "cancel": "Abbrechen"
+  },
+
+  "item_zero": "keine Elemente",
+  "item_one": "Du hast {{count}} Element",
+  "item_other": "Du hast {{count}} Elemente",
+
+  "context_user": "Benutzer",
+  "context_user_male": "Mann",
+  "context_user_female": "Frau",
+
+  "context_plural_example_male_one": "{{count}} Einladung von ihm gesendet",
+  "context_plural_example_male_other": "{{count}} Einladungen von ihm gesendet",
+  
+  "context_plural_example_female_one": "{{count}} Einladung von ihr gesendet",
+  "context_plural_example_female_other": "{{count}} Einladungen von ihr gesendet",
+
+  "key_ordinal_other": "{{count}}. Person",
+  "key_male_ordinal_other": "{{count}}. Mann",
+  "key_female_ordinal_other": "{{count}}. Frau",
+
+  "array": ["eins", "zwei"]
+}

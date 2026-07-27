@@ -1,0 +1,23 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "format": {},
+    "lint": {},
+    "test": {},
+    "typecheck": {},
+    "flt": {
+      "dependsOn": ["//#flt"]
+    },
+    "//#flt": {},
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", "dist-electron/**"]
+    }
+  }
+}

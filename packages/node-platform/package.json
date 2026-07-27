@@ -1,0 +1,30 @@
+{
+  "name": "@repo/node-platform",
+  "description": "Node platform adapter for Loccy shared core.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loccy-dev/monorepo.git",
+    "directory": "packages/node-platform"
+  },
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write --list-different \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck && prettier --check \"**/*.ts\"",
+    "flt": "npm run format && npm run lint"
+  },
+  "dependencies": {
+    "@repo/types": "workspace:*",
+    "globby": "^16.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.8.2",
+    "typescript": "6.0.3"
+  }
+}

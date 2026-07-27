@@ -1,0 +1,297 @@
+{
+  "version": "1.8.19",
+  "name": "loccy",
+  "displayName": "Loccy — AI i18n helper for React & Vue",
+  "description": "Native support of i18next, next-intl, vue-i18n",
+  "icon": "images/icon.png",
+  "homepage": "https://loccy.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loccy-dev/monorepo.git",
+    "directory": "apps/extension"
+  },
+  "bugs": {
+    "url": "https://github.com/loccy-dev/monorepo/issues"
+  },
+  "license": "MIT",
+  "author": "Loccy (https://loccy.dev)",
+  "publisher": "loccy",
+  "pricing": "Free",
+  "keywords": [
+    "i18next",
+    "vue-i18n",
+    "nextjs",
+    "next-intl",
+    "i18n helper",
+    "l10n helper",
+    "localization",
+    "ai i18n",
+    "ai translation",
+    "multilingual"
+  ],
+  "categories": [
+    "AI"
+  ],
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "activationEvents": [
+    "workspaceContains:**/*.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "colors": [
+      {
+        "id": "loccy.annotation",
+        "description": "Color of Loccy translation preview annotations",
+        "defaults": {
+          "dark": "#797D8699",
+          "light": "#797D8699",
+          "highContrast": "#797D8699"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "loccy.extractAndTranslate",
+        "title": "Extract and Translate",
+        "category": "Loccy"
+      },
+      {
+        "command": "loccy.suggestContextualTranslation",
+        "title": "Suggest Contextual Translation",
+        "category": "Loccy"
+      },
+      {
+        "command": "loccy.insertExistingMessage",
+        "title": "Insert Existing Message...",
+        "category": "Loccy"
+      },
+      {
+        "command": "loccy.createConfigFile",
+        "title": "Create Config File",
+        "category": "Loccy"
+      },
+      {
+        "command": "loccy.migrateJsonConfig",
+        "title": "Migrate loccy.config.json to loccy.yaml",
+        "category": "Loccy"
+      },
+      {
+        "command": "loccy.signOut",
+        "title": "Log Out",
+        "category": "Loccy"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "loccy.extractAndTranslate",
+          "group": "1_modification",
+          "when": "loccy.showContextMenuItems"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Loccy",
+      "properties": {
+        "loccy.sourceLocale": {
+          "type": "string",
+          "default": "",
+          "description": "Language of extracted text. If empty, AI model will auto-detect."
+        },
+        "loccy.annotations.previewLocale": {
+          "type": "string",
+          "default": "",
+          "description": "Language of translation previews in the editor. If empty, system or first available used."
+        },
+        "loccy.annotations.showMissingTranslationsWarning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning in the preview when at least one translation is missing for a key."
+        },
+        "loccy.annotations.minMissingLocalesToDisplay": {
+          "type": "number",
+          "default": 3,
+          "description": "Guarantees this minimum number of locales in the missing-translations list when the warning is enabled; more may be shown automatically based on available space. Set 0 to show only the warning."
+        },
+        "loccy.createMessageFromSourceText.suggestKeypath": {
+          "type": "boolean",
+          "default": true,
+          "description": "Suggest keypath when creating new message (AI-powered)"
+        },
+        "loccy.createMessageFromSourceText.autoTranslate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Translate source text to all project locales when creating new message (AI-powered)"
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "jsonc",
+        "aliases": [
+          "JSON with Comments",
+          "jsonc"
+        ],
+        "extensions": [
+          ".jsonc"
+        ],
+        "filenamePatterns": [
+          "loccy.config.json"
+        ]
+      }
+    ],
+    "icons": {
+      "lucide-arrow-right": {
+        "description": "arrow-right icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e049"
+        }
+      },
+      "lucide-braces": {
+        "description": "braces icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e36a"
+        }
+      },
+      "lucide-check": {
+        "description": "check icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e06c"
+        }
+      },
+      "lucide-check-check": {
+        "description": "check-check icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e38e"
+        }
+      },
+      "lucide-folder-cog": {
+        "description": "folder-cog icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e331"
+        }
+      },
+      "lucide-key-round": {
+        "description": "key-round icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e4a3"
+        }
+      },
+      "lucide-languages": {
+        "description": "languages icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e0fe"
+        }
+      },
+      "lucide-message-square-text": {
+        "description": "message-square-text icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e575"
+        }
+      },
+      "lucide-pencil": {
+        "description": "pencil icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e1f9"
+        }
+      },
+      "lucide-send": {
+        "description": "send icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e152"
+        }
+      },
+      "lucide-sparkles": {
+        "description": "sparkles icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e412"
+        }
+      },
+      "lucide-spell-check-2": {
+        "description": "spell-check-2 icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e49b"
+        }
+      },
+      "lucide-user-cog": {
+        "description": "user-cog icon",
+        "default": {
+          "fontPath": "./fonts/lucide.woff",
+          "fontCharacter": "\\e342"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "npm run typecheck && npm run build-icons && node esbuild.js",
+    "typecheck": "tsc --noEmit",
+    "dev": "npm run watch",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "vscode:prepublish": "npm run package",
+    "package": "npm run typecheck && node esbuild.js --production",
+    "build-vsix": "npm run package && vsce package --no-dependencies --allow-missing-repository",
+    "publish:patch": "vsce publish patch --no-dependencies --allow-missing-repository",
+    "publish:minor": "vsce publish minor --no-dependencies --allow-missing-repository",
+    "publish:major": "vsce publish major --no-dependencies --allow-missing-repository",
+    "postinstall": "node tools/postinstall.js",
+    "lint": "npm run typecheck && prettier --check \"./src\" && eslint src --fix",
+    "format": "prettier ./src --write --list-different --no-error-on-unmatched-pattern",
+    "compile-tests": "node tools/compile-tests.js",
+    "pretest": "npm run compile-tests",
+    "test": "vscode-test",
+    "flt": "npm run format && npm run lint && npm run test",
+    "check": "rm -rf out && npm run compile && npm run format && npm run lint && npm run test",
+    "build-icons": "node tools/build-icons.js"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.29.2",
+    "@babel/traverse": "^7.29.0",
+    "@repo/shared": "workspace:^",
+    "@repo/types": "workspace:^",
+    "@vue/compiler-dom": "^3.5.32",
+    "@vue/compiler-sfc": "^3.5.32",
+    "diff": "^9.0.0",
+    "ignore": "^7.0.5",
+    "lodash": "^4.18.1",
+    "minimatch": "^10.2.5",
+    "string-similarity-js": "^2.1.4",
+    "strip-json-comments": "^5.0.3",
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@types/babel__traverse": "^7.28.0",
+    "@types/lodash": "^4.17.24",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "~25.6.0",
+    "@types/vscode": "^1.86.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.2.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "glob": "^13.0.6",
+    "lucide-static": "^1.8.0",
+    "mocha": "^11.7.5",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.8.2"
+  }
+}

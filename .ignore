@@ -1,0 +1,3 @@
+# Re-include the private, git-ignored apps/web in editor search + quick-open.
+# .ignore outranks .gitignore for ripgrep/VS Code but never affects git tracking.
+!apps/web/

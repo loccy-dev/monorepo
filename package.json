@@ -1,0 +1,20 @@
+{
+  "name": "loccy-monorepo",
+  "private": true,
+  "scripts": {
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "knip": "knip",
+    "flt": "knip"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "knip": "^6.29.0",
+    "turbo": "^2.9.6",
+    "typescript": "6.0.3"
+  },
+  "packageManager": "pnpm@9.1.1",
+  "engines": {
+    "node": ">=22"
+  }
+}

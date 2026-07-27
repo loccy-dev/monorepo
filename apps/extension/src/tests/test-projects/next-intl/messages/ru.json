@@ -1,0 +1,36 @@
+{
+  "appName": "Loccy",
+  "appDescription": "Инструмент управления переводами",
+  "welcomeByName": "Добро пожаловать, {name}!",
+  "welcomeByNameAndPage": "Добро пожаловать на {page}, {name}!",
+  "loading": "Загрузка…",
+  "cta": {
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+  "plural": "{count, plural, =0 {нет элементов} one {# элемент} few {# элемента} many {# элементов} other {# элементов}}",
+  "contextUser": "{gender, select, male {Мужчина} female {Женщина} other {Пользователь}}",
+  "dashboard": {
+    "title": "Панель",
+    "subtitle": "Обзор за {date}",
+    "kpis": {
+      "visitors": "Посетители",
+      "revenue": "Выручка",
+      "conversion": "Конверсия"
+    },
+    "greeting_admin": "С возвращением, администратор!",
+    "greeting_member": "С возвращением, участник!",
+    "greeting": "С возвращением!",
+    "visitorsCount": "{count, plural, =0 {нет посетителей сегодня} one {# посетитель сегодня} few {# посетителя сегодня} many {# посетителей сегодня} other {# посетителей сегодня}}",
+    "cards": {
+      "sales": {
+        "title": "Продажи",
+        "trend": {
+          "up": "Рост на {percent}%",
+          "down": "Снижение на {percent}%"
+        }
+      }
+    },
+    "linkForMetric": "Смотрите {link} по показателю {metric}."
+  }
+}

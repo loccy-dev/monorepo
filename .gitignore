@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.pnp.*
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*
+
+# Testing
+coverage/
+
+# Turbo
+.turbo/
+
+# Vercel
+.vercel/
+
+# Build Outputs
+.next/
+out/
+build/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# TypeScript compiled files in src directories
+**/src/**/*.js
+**/src/**/*.d.ts
+**/src/**/*.d.ts.map
+
+# Debug logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Misc
+.DS_Store
+*.pem
+*.local
+
+# Editor directories and files (common)
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claude
+.claude
+CLAUDE.md
+.mcp.json
+
+# private web app (cloned separately, not part of public repo)
+apps/web/

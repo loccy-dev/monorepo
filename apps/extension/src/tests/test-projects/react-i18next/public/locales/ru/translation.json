@@ -1,0 +1,39 @@
+{
+  "appName": "Loccy",
+  "appDescription": "Инструмент управления переводами",
+  "helloFromApp": "Привет от $t(appName)",
+  "welcomeByName": "Добро пожаловать, {{name}}!",
+  "welcomeByNameAndPage": "Добро пожаловать на {{page}}, {{name}}!",
+  "loading": "Загрузка…",
+  
+  "cta": {
+    "save": "Сохранить",
+    "cancel": "Отмена"
+  },
+
+  "item_zero": "нет элементов",
+  "item_one": "У вас {{count}} элемент",
+  "item_few": "У вас {{count}} элемента",
+  "item_many": "У вас {{count}} элементов",
+  "item_other": "У вас {{count}} элементов",
+
+  "context_user": "Пользователь",
+  "context_user_male": "Мужчина",
+  "context_user_female": "Женщина",
+
+  "context_plural_example_male_one": "Он отправил {{count}} приглашение",
+  "context_plural_example_male_few": "Он отправил {{count}} приглашения",
+  "context_plural_example_male_many": "Он отправил {{count}} приглашений",
+  "context_plural_example_male_other": "Он отправил {{count}} приглашения",
+
+  "context_plural_example_female_one": "Она отправила {{count}} приглашение",
+  "context_plural_example_female_few": "Она отправила {{count}} приглашения",
+  "context_plural_example_female_many": "Она отправила {{count}} приглашений",
+  "context_plural_example_female_other": "Она отправила {{count}} приглашения",
+
+  "key_ordinal_other": "{{count}}-й человек",
+  "key_male_ordinal_other": "{{count}}-й мужчина",
+  "key_female_ordinal_other": "{{count}}-я женщина",
+
+  "array": ["один", "два"]
+}

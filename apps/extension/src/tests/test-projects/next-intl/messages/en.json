@@ -1,0 +1,36 @@
+{
+  "appName": "Loccy",
+  "appDescription": "Translation management tool",
+  "welcomeByName": "Welcome, {name}!",
+  "welcomeByNameAndPage": "Welcome to the {page}, {name}!",
+  "loading": "Loading…",
+  "cta": {
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "plural": "{count, plural, =0 {no items} one {# item} other {# items}}",
+  "contextUser": "{gender, select, male {Man} female {Woman} other {User}}",
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview for {date}",
+    "kpis": {
+      "visitors": "Visitors",
+      "revenue": "Revenue",
+      "conversion": "Conversion rate"
+    },
+    "greeting_admin": "Welcome back, Admin!",
+    "greeting_member": "Welcome back, Member!",
+    "greeting": "Welcome back!",
+    "visitorsCount": "{count, plural, =0 {no visitors today} one {# visitor today} other {# visitors today}}",
+    "cards": {
+      "sales": {
+        "title": "Sales",
+        "trend": {
+          "up": "Up {percent}%",
+          "down": "Down {percent}%"
+        }
+      }
+    },
+    "linkForMetric": "See {link} for {metric}."
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@repo/types",
+  "description": "Shared types and config schemas for Loccy.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loccy-dev/monorepo.git",
+    "directory": "packages/types"
+  },
+  "type": "module",
+  "exports": {
+    "./schemas/*": "./schemas/*",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc && npm run generate-schema",
+    "dev": "node scripts/generate-schema.mjs --watch",
+    "generate-schema": "node scripts/generate-schema.mjs",
+    "format": "prettier --write --list-different \"**/*.{ts,json}\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit && prettier --check \"**/*.{ts,json}\"",
+    "flt": "npm run format && npm run lint"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.2",
+    "ts-json-schema-generator": "^2.3.0",
+    "typescript": "6.0.3"
+  }
+}

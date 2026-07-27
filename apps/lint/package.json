@@ -1,0 +1,62 @@
+{
+  "name": "@loccy-dev/lint",
+  "version": "0.1.0",
+  "description": "I18n linter for React & Vue apps — unused keys, missing translations, unsorted resource files. Part of Loccy.",
+  "license": "MIT",
+  "author": "Loccy (https://loccy.dev)",
+  "type": "module",
+  "bin": {
+    "loccy": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist/cli"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "homepage": "https://loccy.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loccy-dev/monorepo.git",
+    "directory": "apps/lint"
+  },
+  "bugs": {
+    "url": "https://github.com/loccy-dev/monorepo/issues"
+  },
+  "keywords": [
+    "i18n",
+    "l10n",
+    "lint",
+    "translations",
+    "react-i18next",
+    "next-intl",
+    "vue-i18n"
+  ],
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "dev": "node esbuild.config.js --watch",
+    "format": "prettier --write --list-different \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit && prettier --check \"**/*.ts\"",
+    "test": "vitest run",
+    "flt": "npm run format && npm run lint && npm run test",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "ora": "^9.3.0"
+  },
+  "devDependencies": {
+    "@repo/node-platform": "workspace:*",
+    "@repo/shared": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.28.0",
+    "gradient-string": "^3.0.0",
+    "prettier": "^3.8.2",
+    "terminal-link": "^5.0.0",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.4"
+  }
+}

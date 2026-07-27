@@ -1,0 +1,32 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Übersicht für {{date}}",
+
+  "kpis": {
+    "visitors": "Besucher",
+    "revenue": "Umsatz",
+    "conversionRate": "Konversionsrate"
+  },
+
+  "visitorsCount_zero": "keine Besucher heute",
+  "visitorsCount_one": "{{count}} Besucher heute",
+  "visitorsCount_other": "{{count}} Besucher heute",
+
+  "greeting": "Willkommen zurück!",
+  "greeting_admin": "Willkommen zurück, Admin!",
+  "greeting_member": "Willkommen zurück, Mitglied!",
+
+  "cards": {
+    "sales": {
+      "title": "Verkäufe",
+      "value": "{{value}}",
+      "trend": {
+        "up": "{{percent}}% gestiegen",
+        "down": "{{percent}}% gesunken"
+      }
+    }
+  },
+
+  "linkForMetric": "Siehe <1>Details</1> für <3>{{metric}}</3>.",
+  "poweredBy": "Bereitgestellt von $t(translation:appName)"
+}

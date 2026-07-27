@@ -1,0 +1,40 @@
+{
+  "name": "@repo/shared",
+  "description": "Shared i18n core logic for Loccy (browser + node).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loccy-dev/monorepo.git",
+    "directory": "packages/shared"
+  },
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write --list-different \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck && prettier --check \"**/*.ts\"",
+    "test": "vitest run",
+    "flt": "npm run format && npm run lint && npm run test"
+  },
+  "dependencies": {
+    "@repo/types": "workspace:*",
+    "js-yaml": "^4.1.1",
+    "json5": "^2.2.3",
+    "lodash-es": "^4.17.21",
+    "pathe": "^2.0.3",
+    "php-parser": "^3.7.0",
+    "regex": "^6.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/lodash-es": "^4.17.12",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.8.2",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.4"
+  }
+}

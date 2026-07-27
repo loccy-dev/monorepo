@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "config.schema.json",
+  "title": "Loccy Config",
+  "description": "Project config for the Loccy i18n toolchain.",
+  "type": "object",
+  "properties": {
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/PartialModuleConfig"
+      }
+    },
+    "styleguide": {
+      "$ref": "#/$defs/StyleguideConfig"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "PartialModuleConfig": {
+      "type": "object",
+      "properties": {
+        "framework": {
+          "$ref": "#/$defs/ActiveFrameworkId"
+        },
+        "usages": {
+          "type": "object",
+          "properties": {
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Glob patterns for source files to scan"
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "customTFunctions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Additional t-function names beyond the framework defaults"
+            },
+            "detectKeysInStrings": {
+              "type": "boolean",
+              "description": "Try matching bare string literals against known keys. Default: true"
+            },
+            "quoteType": {
+              "type": "string",
+              "enum": ["single", "double"],
+              "description": "Quote style for inserted t-function calls. Omit to auto-detect from the codebase."
+            },
+            "defaultNamespace": {
+              "type": "string",
+              "description": "Default namespace for the t-function, when not set explicitly. Only for react-i18next."
+            },
+            "noUnresolvedKeys": {
+              "$ref": "#/$defs/NoUnresolvedKeysRule",
+              "description": "Lint: flag keys used in code but missing from translations. Default: true."
+            },
+            "noUnusedKeys": {
+              "type": "boolean",
+              "description": "Lint: flag unused translation keys — removed by lint --fix. Default: true. Dynamically-built keys are whitelisted via `// loccy-used-keys: pattern` comments at the construction site (not config)."
+            }
+          },
+          "additionalProperties": false
+        },
+        "translations": {
+          "type": "object",
+          "properties": {
+            "glob": {
+              "type": "string",
+              "description": "Single glob for this module's translation files."
+            },
+            "layout": {
+              "$ref": "#/$defs/LayoutPattern",
+              "description": "How file paths map to locales and namespaces."
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "noUntranslatedKeys": {
+              "type": "boolean",
+              "description": "Lint: require every key translated & non-empty in all locales, except partial-override locales. Default: true."
+            },
+            "sortKeys": {
+              "type": "boolean",
+              "description": "Lint: deeply sort keys alphabetically. Default: false."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "description": "Raw per-module shape in the file."
+    },
+    "ActiveFrameworkId": {
+      "type": "string",
+      "enum": ["react-i18next", "vue-i18n", "next-intl", "custom"],
+      "description": "Supported i18n framework id."
+    },
+    "NoUnresolvedKeysRule": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable the rule. Default: true"
+            },
+            "excludeKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Keys to skip, formatted as `namespace:keypath` (or bare `keypath` when no namespace). Matches the exact key; use `*` glob (e.g. `prefix.*`) to match everything under a prefix. Example: `translations:landing.hero.title`"
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "`noUnresolvedKeys` rule: enable/disable, or configure with `excludeKeys`."
+    },
+    "MessageFormatId": {
+      "type": "string",
+      "enum": ["suffix-cldr", "icu", "vue-pipe", "choice-pipe"],
+      "description": "Plural-encoding id (message format). Closed set — only registered formats."
+    },
+    "LayoutPattern": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ],
+      "description": "How resource files are laid out.\n- a single pattern: `{locale}.json`, `{locale}/{namespace}.json`\n- per-locale patterns keyed by locale, with `*` as the fallback — for irregular conventions   (e.g. a suffix-less default file): `{ en: 'messages.properties', '*': 'messages_{locale}.properties' }`"
+    },
+    "StyleguideConfig": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Code-side i18n guidance: key naming, file organization, coding conventions (markdown)."
+        },
+        "global": {
+          "type": "string",
+          "description": "Style guidance applied to every locale (markdown)."
+        },
+        "locales": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/LocaleValue"
+          },
+          "description": "Per-locale styleguide, keyed by locale code — plain prose, or a partial-override entry."
+        },
+        "doNotTranslate": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DoNotTranslateEntry"
+          },
+          "description": "Terms preserved verbatim in every locale (brand/product names)."
+        },
+        "glossary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GlossaryEntry"
+          },
+          "description": "Terms with approved per-locale translations (consistency)."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Prose + structured guidance for AI translation."
+    },
+    "LocaleValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "description": "Locale this one inherits from, e.g. `de` for `de-CH`. Filled only where it diverges."
+            },
+            "style": {
+              "type": "string",
+              "description": "What changes vs the extended locale, in plain language (e.g. `ß becomes ss`). Empty/absent means full inherit."
+            }
+          },
+          "required": ["extends"],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Per-locale style guidance: plain prose, or a partial-override object (`extends` + optional `style`)."
+    },
+    "DoNotTranslateEntry": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string",
+          "description": "The literal text to preserve."
+        },
+        "caseSensitive": {
+          "type": "boolean",
+          "description": "Respect casing when matching this term."
+        },
+        "definition": {
+          "type": "string",
+          "description": "Optional definition (why it's preserved, a spelling detail, etc)."
+        }
+      },
+      "required": ["term"],
+      "additionalProperties": false,
+      "description": "A term whose literal form must be preserved across all locales."
+    },
+    "GlossaryEntry": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "type": "string",
+          "description": "What the term means and when it applies."
+        },
+        "terms": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/GlossaryLocaleValue"
+          },
+          "description": "Rendering per locale code."
+        }
+      },
+      "required": ["definition", "terms"],
+      "additionalProperties": false,
+      "description": "A term with approved per-locale translations, for terminology consistency."
+    },
+    "GlossaryLocaleValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "preferred": {
+              "type": "string",
+              "description": "The approved form for this locale."
+            },
+            "deprecated": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Forms that must never appear for this locale — always flagged."
+            }
+          },
+          "required": ["preferred"],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Approved term for one locale: a string, or `{ preferred, deprecated? }` to also flag old forms."
+    }
+  }
+}

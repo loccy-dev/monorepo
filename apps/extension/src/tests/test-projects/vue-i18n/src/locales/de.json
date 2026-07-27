@@ -1,0 +1,37 @@
+{
+  "appName": "Loccy",
+  "appDescription": "Übersetzungsmanagement-Tool",
+  "helloFromApp": "Hallo von @:appName",
+  "welcomeByName": "Willkommen, {name}!",
+  "welcomeByNameAndPage": "Willkommen auf der Seite {page}, {name}!",
+  "loading": "Wird geladen…",
+  "cta": {
+    "save": "Speichern",
+    "cancel": "Abbrechen"
+  },
+  "plural": "keine Elemente | Du hast {n} Element | Du hast {n} Elemente",
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Übersicht für {date}",
+    "kpis": {
+      "visitors": "Besucher",
+      "revenue": "Umsatz",
+      "conversion": "Konversionsrate"
+    },
+    "greeting_admin": "Willkommen zurück, Admin!",
+    "greeting_member": "Willkommen zurück, Mitglied!",
+    "greeting": "Willkommen zurück!",
+    "visitorsCount": "keine Besucher heute | {count} Besucher heute | {count} Besucher heute",
+    "cards": {
+      "sales": {
+        "title": "Verkäufe",
+        "trend": {
+          "up": "Plus {percent}%",
+          "down": "Minus {percent}%"
+        }
+      }
+    },
+    "linkForMetric": "Sieh dir {link} für {metric} an.",
+    "poweredBy": "Bereitgestellt von @:appName"
+  }
+}
