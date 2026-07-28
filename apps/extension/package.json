@@ -1,5 +1,5 @@
 {
-  "version": "1.8.19",
+  "version": "1.9.0",
   "name": "loccy",
   "displayName": "Loccy — AI i18n helper for React & Vue",
   "description": "Native support of i18next, next-intl, vue-i18n",
