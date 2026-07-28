@@ -9,7 +9,8 @@
     "loccy": "./dist/cli/index.js"
   },
   "files": [
-    "dist/cli"
+    "dist/cli",
+    "!dist/cli/*.map"
   ],
   "engines": {
     "node": ">=18"
