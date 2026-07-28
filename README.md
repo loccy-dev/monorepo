@@ -55,4 +55,4 @@ Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and [TODO.md](TODO
 
 ## License
 
-Loccy's open-source packages (`apps/lint`, `apps/extension`, and the shared `packages/*`) are [MIT](https://opensource.org/licenses/MIT) licensed. `apps/web` is a private backend and not open-sourced.
+Loccy's open-source packages (`apps/lint`, `apps/extension`, and the shared `packages/*`) are [MIT](https://opensource.org/licenses/MIT) licensed.
