@@ -6,7 +6,10 @@ import type { LocalizedText, Locale } from './primitives.types'
 import type { StyleguideConfig, MessageFormatId } from './config.types'
 import type { PluralCategory } from './plurals.types'
 
-/** A plural translated per CLDR category — the branches of one locale's plural. */
+/**
+ * A plural translated per CLDR category — the branches of one locale's plural.
+ * @lintignore
+ */
 export type PluralBranches = Partial<Record<PluralCategory, string>>
 
 export enum AiAction {
@@ -183,6 +186,7 @@ export type AiResponse<T> = {
   overrideResolutions?: OverrideResolution[]
 }
 
+/** @lintignore */
 export type AiRequest =
   | { action: AiAction.adjustAll; payload: AdjustAllInput }
   | { action: AiAction.adjustOneVariants; payload: AdjustOneVariantsInput }

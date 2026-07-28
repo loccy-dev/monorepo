@@ -6,11 +6,10 @@
     "-lintignore"
   ],
   "ignore": [
-    ".claude/**",
+    "apps/web/**",
     "apps/extension/src/lucide-icons.ts", // auto-generated, all icons kept for lookup
     "apps/extension/src/tests/test-projects/**", // fixtures read via fs paths, not imports
-    "apps/extension/.vscode-test.mjs", // vscode-test config file, no knip plugin for it
-    "apps/web/content.config.ts" // Nuxt Content root config, convention-loaded
+    "apps/extension/.vscode-test.mjs" // vscode-test config file, no knip plugin for it
   ],
   "workspaces": {
     ".": {},
@@ -28,25 +27,6 @@
       ],
       "ignoreBinaries": [
         "vsce" // npx-invoked in publish scripts only
-      ]
-    },
-    "apps/web": {
-      "entry": [
-        "app/components/content/**/*.vue", // Nuxt Content Prose overrides, used from markdown
-        "eval/cli.ts", // invoked via eval/Makefile, not an npm script
-        "eval/raw-loader.ts" // registered as a node --import loader, not statically imported
-      ],
-      "ignoreDependencies": [
-        "vue-tsc", // used internally by `nuxi typecheck`, never imported
-        "@langfuse/tracing" // unused today but risky to drop, needs testing first
-      ],
-      "ignoreBinaries": [
-        "stripe", // npx-invoked dev tool (stripe listen)
-        "ngrok" // npx-invoked dev tool (tunnel)
-      ],
-      "ignore": [
-        "app/components/ui/**/index.ts", // shadcn-vue generated barrels, wider than current usage by design
-        "eval/types.ts" // defineDataset/DatasetEntry: scaffolding for .dataset.ts files not yet written
       ]
     }
   }
