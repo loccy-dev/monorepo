@@ -30,7 +30,6 @@ dist-ssr/
 *.tsbuildinfo
 
 # TypeScript compiled files in src directories
-**/src/**/*.js
 **/src/**/*.d.ts
 **/src/**/*.d.ts.map
 
