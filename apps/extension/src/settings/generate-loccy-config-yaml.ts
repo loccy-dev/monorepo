@@ -1,6 +1,6 @@
 import { renderLoccyConfigYaml } from '@repo/shared/core/loccy-config/config-templates'
 import { placeholderConfig } from '@repo/shared/core/loccy-config/initialize-config'
-import { LocaleValue, StyleguideConfig, partialOverridesOf } from '@repo/types/config.types'
+import { LocaleValue, ResolvedModule, StyleguideConfig, partialOverridesOf } from '@repo/types/config.types'
 import { cfg } from '../global-config'
 
 /** AI instructions carried over from a legacy `loccy.config.json`, mapped onto the styleguide. */
@@ -34,11 +34,16 @@ function toStyleguide(
 /**
  * Generate `loccy.yaml` from the resolved config — the whole modules map, same as CLI/shared init
  * (`renderLoccyConfigYaml` already omits runtime-only fields like `quoteType` and re-derivable
- * defaults). Migrating legacy json also writes the carried-over AI instructions as a `styleguide`.
+ * defaults). Defaults to the current detected config; a legacy-json migration passes its own
+ * resolved modules (legacy structural fields merged over detection) instead. Migrating legacy json
+ * also writes the carried-over AI instructions as a `styleguide`.
  */
-export function generateLoccyConfigYaml(migrated?: MigratedStyleguide): string {
+export function generateLoccyConfigYaml(
+  migrated?: MigratedStyleguide,
+  modules: Record<string, ResolvedModule> = (cfg.resolvedConfig ?? placeholderConfig).modules,
+): string {
   return renderLoccyConfigYaml({
-    modules: (cfg.resolvedConfig ?? placeholderConfig).modules,
+    modules,
     styleguide: toStyleguide(migrated, cfg.styleguide?.locales),
   })
 }

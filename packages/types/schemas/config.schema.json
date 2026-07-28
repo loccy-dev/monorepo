@@ -12,7 +12,14 @@
       }
     },
     "styleguide": {
-      "$ref": "#/$defs/StyleguideConfig"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StyleguideConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,

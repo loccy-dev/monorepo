@@ -42,6 +42,9 @@ function renderModule(module: LoccyConfig['modules'][string]): string {
     typeof translations.layout === 'string' && translations.layout === frameworkDefaultLayout(framework, ext)
   const layoutLine = layoutIsDefault ? '' : `\n      layout: ${renderLayout(translations.layout)}`
   const sortKeysLine = translations.sortKeys ? `\n      sortKeys: true` : ''
+  const translationsExcludeLine = translations.exclude?.length
+    ? `\n      exclude:${block(translations.exclude, '        ')}`
+    : ''
 
   // Emit `messageFormat` only when it isn't the framework's default: an omitted value is re-derived
   // by the reader as `messageFormats[0]`, which differs from a deps/weld-resolved format (e.g.
@@ -50,13 +53,19 @@ function renderModule(module: LoccyConfig['modules'][string]): string {
   const messageFormatIsDefault = translations.messageFormat === getFramework(framework)?.messageFormats[0]
   const messageFormatLine = messageFormatIsDefault ? '' : `\n      messageFormat: ${translations.messageFormat}`
 
+  const usagesExcludeLine = usages.exclude?.length ? `\n      exclude:${block(usages.exclude, '        ')}` : ''
+  const customTFunctionsLine = usages.customTFunctions?.length
+    ? `\n      customTFunctions:${block(usages.customTFunctions, '        ')}`
+    : ''
+  const detectKeysInStringsLine = usages.detectKeysInStrings === false ? `\n      detectKeysInStrings: false` : ''
+
   return `    framework: ${framework}
 
     translations:
-      glob: ${q(translations.glob)}${messageFormatLine}${layoutLine}${sortKeysLine}
+      glob: ${q(translations.glob)}${messageFormatLine}${layoutLine}${sortKeysLine}${translationsExcludeLine}
 
     usages:
-      include:${block(usages.include, '        ')}`
+      include:${block(usages.include, '        ')}${usagesExcludeLine}${customTFunctionsLine}${detectKeysInStringsLine}`
 }
 
 const STYLEGUIDE_EXAMPLE = `styleguide:

@@ -1,17 +1,44 @@
-// One-time migration of legacy `loccy.config.json` to `.yaml`. Only place json is read — structural
-// config regenerates from detection (like `createConfigFile`); only AI instructions carry over into
-// the styleguide.
+// One-time migration of legacy `loccy.config.json` to `.yaml`. Structural fields that map cleanly
+// onto the current module shape carry over as an explicit module override (gaps still filled by
+// detection, same as a hand-authored `modules:` block); AI instructions carry over into the
+// styleguide. Fields with no current equivalent (e.g. `resources.file.structure`, `ai.useCodeContext`)
+// are dropped.
 
 import * as vscode from 'vscode'
 import { fileResolver } from '../helpers/file-resolver'
 import { generateLoccyConfigYaml } from './generate-loccy-config-yaml'
-import { loccyConfigFilename } from '@repo/types/config.types'
+import { loccyConfigFilename, type PartialModuleConfig } from '@repo/types/config.types'
+import type { ActiveFrameworkId } from '@repo/types/framework.types'
+import { resolveConfig } from '@repo/shared/core/loccy-config/loccy-config'
+import { getFramework, DISABLED_FRAMEWORK_IDS } from '@repo/shared/core/registry'
 import { Logger } from '../helpers/logger'
+import { cfg } from '../global-config'
 
 const jsonConfigName = 'loccy.config.json'
+const DEFAULT_MODULE = 'default'
 
-/** AI instruction fields the legacy `loccy.config.json` may carry (removed from the current schema). */
+/** Fields the legacy `loccy.config.json` may carry (removed from the current schema). */
 interface LegacyConfig {
+  resources?: {
+    paths?: {
+      include?: string[]
+      exclude?: string[]
+    }
+    file?: {
+      sortKeys?: 'auto' | 'yes' | 'no'
+    }
+  }
+  usages?: {
+    paths?: {
+      include?: string[]
+      exclude?: string[]
+    }
+    tFunction?: {
+      preset?: string
+      customFunctionNames?: string[]
+    }
+    detectKeysInStrings?: boolean
+  }
   ai?: {
     translations?: {
       customInstructions?: string
@@ -20,6 +47,37 @@ interface LegacyConfig {
     keypaths?: {
       customInstructions?: string
     }
+  }
+}
+
+/** An active, non-disabled framework id, or undefined for a preset with no current equivalent (e.g. `svelte-i18n`, `none`). */
+function toActiveFrameworkId(preset: string | undefined): ActiveFrameworkId | undefined {
+  if (!preset || !getFramework(preset) || DISABLED_FRAMEWORK_IDS.has(preset as never)) {
+    return undefined
+  }
+  return preset as ActiveFrameworkId
+}
+
+/** Legacy structural fields, mapped onto a module override — gaps (glob w/ >1 pattern, layout, message format) still fill from detection via `resolveConfig`. */
+function legacyToPartialModule(legacy: LegacyConfig): PartialModuleConfig {
+  const include = legacy.resources?.paths?.include
+  const sortKeysRaw = legacy.resources?.file?.sortKeys
+
+  return {
+    framework: toActiveFrameworkId(legacy.usages?.tFunction?.preset),
+    usages: {
+      include: legacy.usages?.paths?.include,
+      exclude: legacy.usages?.paths?.exclude,
+      customTFunctions: legacy.usages?.tFunction?.customFunctionNames,
+      detectKeysInStrings: legacy.usages?.detectKeysInStrings,
+    },
+    translations: {
+      // A single glob maps directly; multiple legacy patterns have no lossless single-glob
+      // equivalent, so fall back to detection instead of guessing which one wins.
+      glob: include?.length === 1 ? include[0] : undefined,
+      exclude: legacy.resources?.paths?.exclude,
+      sortKeys: sortKeysRaw === 'yes' ? true : sortKeysRaw === 'no' ? false : undefined,
+    },
   }
 }
 
@@ -52,8 +110,8 @@ const writeFile = (uri: vscode.Uri, content: string) =>
 
 /**
  * Convert `loccy.config.json` → `loccy.yaml`, then delete the json.
- * Config is generated from current (detected) settings; the file also carries the legacy AI
- * translation instructions as the styleguide (`global` / `locales`) and keypath instructions (`keypaths`).
+ * Legacy structural fields carry over as an explicit module override (detection fills any gaps);
+ * legacy AI instructions carry over as the styleguide (`global` / `locales` / `keypaths`).
  */
 export async function migrateJsonConfig(jsonUri: vscode.Uri): Promise<{ migratedAiInstructions: boolean }> {
   const legacy = await parseLegacyJson(jsonUri)
@@ -64,9 +122,14 @@ export async function migrateJsonConfig(jsonUri: vscode.Uri): Promise<{ migrated
   const keypaths = legacy.ai?.keypaths?.customInstructions?.trim()
   const migratedAiInstructions = Boolean(global?.trim() || Object.keys(locales ?? {}).length || keypaths)
 
+  const { modules } = resolveConfig(
+    { modules: { [DEFAULT_MODULE]: legacyToPartialModule(legacy) } },
+    cfg.resolvedConfig,
+  )
+
   await writeFile(
     vscode.Uri.joinPath(dir, loccyConfigFilename),
-    generateLoccyConfigYaml({ global, locales, code: keypaths }),
+    generateLoccyConfigYaml({ global, locales, code: keypaths }, modules),
   )
 
   await vscode.workspace.fs.delete(jsonUri)

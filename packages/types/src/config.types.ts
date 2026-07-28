@@ -208,5 +208,5 @@ export interface PartialModuleConfig {
 /** Authoring-time schema; see {@link LoccyConfig} for the resolved runtime shape. */
 export interface PartialLoccyConfig {
   modules?: Record<string, PartialModuleConfig>
-  styleguide?: StyleguideConfig
+  styleguide?: StyleguideConfig | null
 }
