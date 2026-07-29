@@ -12,15 +12,11 @@ Docs → [loccy.dev/docs/extension](https://loccy.dev/docs/extension)
 
 > **Note:** the legacy `loccy.config.json` is replaced by `loccy.yaml`. If you already have a JSON config, run **`Loccy: Migrate loccy.config.json to loccy.yaml`** from the Command Palette to convert it.
 
-<br>
-
 ## Setup
 
 Loccy auto-detects the i18n setup of any open project. Zero-config, covers most projects.
 
 Still, add a `loccy.yaml` (run `Loccy: Create Config File` from the Command Palette). It's where you tune or override detection, and the only place to define the AI styleguide: rules like "de: use informal 'du' instead of 'Sie'", set once and applied to every AI translation.
-
-<br>
 
 ## Showcase: core features
 
@@ -59,8 +55,6 @@ Reuse a translation that already exists instead of creating a duplicate. Place y
 When a keypath has at least one empty or missing translation, the inline preview shows a warning listing the affected locales. Partial-override locales are excluded, their empty keys are intentional.
 
 ![Inline preview showing a missing-translation warning listing the affected locales](https://loccy.dev/extension-features/missing-translation-warning.png)
-
-<br>
 
 ## Showcase: AI features
 
@@ -101,8 +95,6 @@ Auto-fills all empty translations in a message. Click the three dots in the hove
 Rewrite text with a free-form instruction. For all translations at once, click the three dots in the hover menu. For a single one, click the pencil button, then choose **Adjust with prompt...**.
 
 ![Rewriting translations with a free-form prompt](https://loccy.dev/extension-features/gif/prompt.gif)
-
-<br>
 
 ## Links
 

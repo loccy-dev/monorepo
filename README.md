@@ -39,8 +39,6 @@ Perfect for CI/CD.
 
 More → [apps/lint](apps/lint)
 
-<br>
-
 ## Project structure
 
 Turbo monorepo with shared logic extracted to `packages/`.
@@ -54,8 +52,6 @@ packages/
   ├── types/          # shared types + config schema
   └── node-platform/  # node-specific platform bindings
 ```
-
-<br>
 
 ## Contributing
 

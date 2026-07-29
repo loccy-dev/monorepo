@@ -4,8 +4,6 @@ Keeps translations for React & Vue apps clean and sorted. Catches unused keys, m
 
 Part of [Loccy](https://loccy.dev), open-source i18n devtooling. Reads the same `loccy.yaml` as the [editor extension](https://marketplace.visualstudio.com/items?itemName=loccy.loccy): configure once, use everywhere.
 
-<br>
-
 ## Install
 
 ```bash
@@ -13,8 +11,6 @@ npm i -D @loccy-dev/lint
 ```
 
 Requires Node.js >= 18.
-
-<br>
 
 ## Set up
 
@@ -31,8 +27,6 @@ Or do it yourself:
 ```bash
 npx loccy init                   # scaffold from auto-detection, then review
 ```
-
-<br>
 
 ## Usage
 
@@ -52,8 +46,6 @@ Both commands exit with code `1` when issues remain, so they can gate merges:
 
 Pass `--config <path>` to point at a config outside the project root. Set `LOCCY_LINT_DEBUG=1` for debug output.
 
-<br>
-
 ## Rules
 
 Each rule lives on its axis in `loccy.yaml`. [Configuration docs.](https://loccy.dev/docs/config)
@@ -65,8 +57,6 @@ Each rule lives on its axis in `loccy.yaml`. [Configuration docs.](https://loccy
 | `usages.noUnusedKeys` | Keys never referenced in code (`loccy lint --fix` removes them) |
 | `usages.noUnresolvedKeys` | Keys used in code but absent from translations |
 
-<br>
-
 ## Development
 
 From the monorepo root run `pnpm install`, then from `apps/lint`:
@@ -76,10 +66,6 @@ pnpm dev    # rebuild on TypeScript changes
 npm link    # once, makes `loccy` runnable from any test project
 ```
 
-<br>
-
 ## Links
 
-- [Documentation](https://loccy.dev/docs): setup, configuration, styleguide
-- [GitHub](https://github.com/loccy-dev/monorepo): source, issues, feature requests
-- [Discord](https://discord.gg/btztGrejXU): news, bug reports, questions
+[Website](https://loccy.dev) • [GitHub](https://github.com/loccy-dev/monorepo) • [Discord](https://discord.gg/btztGrejXU)
