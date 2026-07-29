@@ -46,7 +46,7 @@ Loccy combines essential i18n functionality (like inline previews and in-place e
 ## **Pricing**
 
 - All basic features are free.
-- AI actions is $6/month or $49/year (unlimited usage). New accounts start with 30 free AI requests.
+- AI assistance needs paid subscription. See [Loccy.dev](https://loccy.dev) for current pricing.
 
 ## **Links**
 - [Loccy.dev](https://loccy.dev): Official website. Trial, and subscription management.

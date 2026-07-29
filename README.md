@@ -2,57 +2,63 @@
 
 # Loccy
 
-**AI-powered i18n devtooling for React & Vue.** An editor extension and a linter that share one config. Set up your translations once, keep them clean everywhere.
+Modern i18n toolkit for React & Vue. Mostly free and open-source. All tools powered by a single `loccy.yaml` config. [Read docs.](https://loccy.dev/docs)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/extension-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="images/extension-light.png">
+  <img alt="Extension icon" src="images/extension-light.png" width="48">
+</picture>
+
+## Editor extension
 
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-install-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=loccy.loccy)
 [![Open VSX](https://img.shields.io/badge/Open%20VSX-install-C160EF)](https://open-vsx.org/extension/loccy/loccy)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/btztGrejXU)
 
-Supports **react-i18next**, **next-intl**, and **vue-i18n**. Auto-detects your setup. Zero config to start.
+Inline translation previews, in-place editing, keypath renaming, and quick, fine-tuned AI-powered actions: extract static text to a translated message, sync all locales after one edit, auto-fill empty translations, [etc.](https://loccy.dev/docs/extension/ai-features) Offline features are free, AI actions require a small subscription which also helps fund the project.
 
-## What's inside
+Compatible with all VS Code based editors.
 
-Two tools, one shared `loccy.yaml`:
+More → [apps/extension](apps/extension)
 
-### 🧩 IDE extension · [`apps/extension`](apps/extension)
+<br>
 
-AI i18n helper for VS Code, Cursor, and other VS Code–compatible editors. Inline translation previews, in-place editing, keypath renaming, and fine-tuned AI workflows: extract static text to a translated message, sync all locales after one edit, auto-fill empty translations, refine draft copy.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/linter-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="images/linter-light.png">
+  <img alt="Terminal icon" src="images/linter-light.png" width="48">
+</picture>
 
-Basics are free; AI assistance is $6/mo or $49/yr (30 free requests to start).
+## i18n linter
 
-**Install:** [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=loccy.loccy) · [Open VSX](https://open-vsx.org/extension/loccy/loccy)
+Keeps your translations clean and sorted. Catches unused or untranslated keys, or keys used in code but absent from translations. Before you ship it to production.
 
-### 🔎 i18n linter for React & Vue · [`apps/lint`](apps/lint) · [`@loccy-dev/lint`](https://www.npmjs.com/package/@loccy-dev/lint)
+Perfect for CI/CD.
 
-Catches unused keys, missing/empty translations, keys used in code but absent from translations, and unsorted files, locally and in CI.
+More → [apps/lint](apps/lint)
 
-**→ [Install & usage](apps/lint/README.md)**
+<br>
 
-## Repo layout
+## Project structure
+
+Turbo monorepo with shared logic extracted to `packages/`.
 
 ```
 apps/
-  extension/      VS Code extension (the published product)
-  lint/           i18n linter + config initializer (@loccy-dev/lint)
+  ├── extension/      # VS Code extension
+  └── lint/           # CLI linter
 packages/
-  shared/         core i18n logic (browser + node)
-  node-platform/  node-specific platform bindings
-  types/          shared types + config schemas
+  ├── shared/         # core logic
+  ├── types/          # shared types + config schema
+  └── node-platform/  # node-specific platform bindings
 ```
 
-Built with [pnpm](https://pnpm.io) + [Turborepo](https://turborepo.com). Setup, dev, and how to run the extension → [CONTRIBUTING.md](CONTRIBUTING.md).
+<br>
 
 ## Contributing
 
-Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and [TODO.md](TODO.md) for current priorities.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) and [TODO.md](TODO.md) for current priorities.
 
-## Links
-
-- 🌐 [loccy.dev](https://loccy.dev): website, docs, subscription management
-- 💬 [Discord](https://discord.gg/btztGrejXU): news, bug reports, feature requests
-- ✉️ [hello@loccy.dev](mailto:hello@loccy.dev)
-
-## License
-
-Loccy's open-source packages (`apps/lint`, `apps/extension`, and the shared `packages/*`) are [MIT](https://opensource.org/licenses/MIT) licensed.
+Ideas, questions, problems — all welcome in our [Discord](https://discord.gg/btztGrejXU).
