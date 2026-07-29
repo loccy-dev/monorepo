@@ -1,10 +1,12 @@
-# Loccy i18n linter for React & Vue
+# Loccy i18n linter
 
-I18n linter for React & Vue apps. Finds unused keys, missing or empty translations, keys referenced in code but absent from translations, and unsorted translation files, locally and in CI.
+Keeps translations for React & Vue apps clean and sorted. Catches unused keys, missing or empty translations, and keys used in code but absent from translations. Locally and in CI.
 
-Part of [Loccy](https://loccy.dev), open-source i18n devtooling. Reads the same `loccy.yaml` as the [Loccy IDE extension](https://marketplace.visualstudio.com/items?itemName=loccy.loccy). Configure once, use everywhere.
+Part of [Loccy](https://loccy.dev), open-source i18n devtooling. Reads the same `loccy.yaml` as the [editor extension](https://marketplace.visualstudio.com/items?itemName=loccy.loccy): configure once, use everywhere.
 
-## Installation
+<br>
+
+## Install
 
 ```bash
 npm i -D @loccy-dev/lint
@@ -12,61 +14,72 @@ npm i -D @loccy-dev/lint
 
 Requires Node.js >= 18.
 
+<br>
+
 ## Set up
 
-Loccy needs a `loccy.yaml` (run once, then commit it).
+Loccy needs a `loccy.yaml`. Create it once, then commit it.
 
-**Fastest, let your AI agent do it:**
-
-```bash
-npx loccy init-prompt | pbcopy
-```
-
-Then paste into your coding agent.
-
-**Or do it yourself:**
+Fastest, let your AI agent do it:
 
 ```bash
-npx loccy init    # scaffold loccy.yaml from auto-detection, then review it
+npx loccy init-prompt | pbcopy   # paste into your coding agent
 ```
+
+Or do it yourself:
+
+```bash
+npx loccy init                   # scaffold from auto-detection, then review
+```
+
+<br>
 
 ## Usage
 
 ```bash
-# lint translations and key usage
-npx loccy lint
-
-# remove unused keys
-npx loccy lint --fix
-
-# sort keys in translation files (modules with sortKeys)
-npx loccy format
-
-# check sort order without writing, exit 1 if any file needs sorting (for CI)
-npx loccy format --check
+npx loccy lint             # check translations and key usage
+npx loccy lint --fix       # same, and remove unused keys
+npx loccy format           # sort keys in translation files
+npx loccy format --check   # report unsorted files, write nothing
 ```
 
-`loccy lint` needs a committed `loccy.yaml` (run `npx loccy init` once to create it). It exits with code `1` when issues remain, so it can gate merges in CI:
+Both commands exit with code `1` when issues remain, so they can gate merges:
 
 ```yaml
 # .github/workflows/i18n.yml
 - run: npx loccy lint && npx loccy format --check
 ```
 
-### What lint checks
+Pass `--config <path>` to point at a config outside the project root. Set `LOCCY_LINT_DEBUG=1` for debug output.
 
-- **Missing translations**: keys missing or empty in some locales
-- **Usage**: keys unused in code (`--fix` removes them) and keys used in code but missing from translations
+<br>
 
-Sorting is separate: run `npx loccy format` to sort keys (for modules with `sortKeys`). Rules are configured on their axis in `loccy.yaml`: `translations.noUntranslatedKeys`, `translations.sortKeys`, `usages.noUnusedKeys`, `usages.noUnresolvedKeys`. See the [configuration docs](https://loccy.dev/docs/config).
+## Rules
 
-Set `LOCCY_LINT_DEBUG=1` for debug output.
+Each rule lives on its axis in `loccy.yaml`. [Configuration docs.](https://loccy.dev/docs/config)
+
+| Rule | What it catches |
+| :--- | :--- |
+| `translations.noUntranslatedKeys` | Keys missing or empty in some locales |
+| `translations.sortKeys` | Unsorted translation files (`loccy format` fixes them) |
+| `usages.noUnusedKeys` | Keys never referenced in code (`loccy lint --fix` removes them) |
+| `usages.noUnresolvedKeys` | Keys used in code but absent from translations |
+
+<br>
 
 ## Development
 
-From the monorepo root: `pnpm install`, then from `apps/lint`:
+From the monorepo root run `pnpm install`, then from `apps/lint`:
 
 ```bash
-pnpm dev    # rebuilds on TypeScript changes
+pnpm dev    # rebuild on TypeScript changes
 npm link    # once, makes `loccy` runnable from any test project
 ```
+
+<br>
+
+## Links
+
+- [Documentation](https://loccy.dev/docs): setup, configuration, styleguide
+- [GitHub](https://github.com/loccy-dev/monorepo): source, issues, feature requests
+- [Discord](https://discord.gg/btztGrejXU): news, bug reports, questions
