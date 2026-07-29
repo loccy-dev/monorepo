@@ -1,6 +1,6 @@
 {
   "name": "@loccy-dev/lint",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "I18n linter for React & Vue apps — unused keys, missing translations, unsorted resource files. Part of Loccy.",
   "license": "MIT",
   "author": "Loccy (https://loccy.dev)",
