@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { minimatch } from 'minimatch'
 import { DirectoryWatcherConfig } from './watcher.types'
 import { gitignoreHelper } from '../gitignore-helper'
+import { toRootRelative } from '../vscode-platform'
 import { Logger } from '../logger'
 
 /**
@@ -45,7 +46,10 @@ export class DirectoryWatcher {
       return false
     }
 
-    const relativePath = vscode.workspace.asRelativePath(uri, false)
+    const relativePath = toRootRelative(uri)
+    if (!relativePath) {
+      return false
+    }
 
     for (const pattern of this.config.excludePatterns) {
       if (minimatch(relativePath, pattern, { dot: true })) {

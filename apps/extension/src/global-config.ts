@@ -63,7 +63,7 @@ class GlobalConfig {
   async init(context: vscode.ExtensionContext): Promise<boolean> {
     this.settings = this.loadSettings()
 
-    const platform = createVscodePlatform()
+    const platform = await createVscodePlatform()
     if (!platform) {
       Logger.info('No workspace open, init cancelled')
       return false

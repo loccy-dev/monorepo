@@ -17,7 +17,7 @@ import type { MessageFormat, FrameworkScanContext } from '@repo/shared/core/cont
 import type { ResolvedModule } from '@repo/types/config.types'
 import type { I18nFrameworkId } from '@repo/types/framework.types'
 import { editWorkspaceAndSave } from './workspace-edit'
-import { createVscodePlatform } from './vscode-platform'
+import { createVscodePlatform, loccyRoot, toRootRelative } from './vscode-platform'
 import { minimatch } from 'minimatch'
 import type { LayoutPattern } from '@repo/types/config.types'
 
@@ -187,7 +187,10 @@ export class ResourceService {
   }
 
   private matchesModuleGlob(uri: vscode.Uri, module: ResolvedModule): boolean {
-    const rel = vscode.workspace.asRelativePath(uri, false)
+    const rel = toRootRelative(uri)
+    if (!rel) {
+      return false
+    }
     if (module.translations.exclude?.some((ex) => minimatch(rel, ex, { dot: true }))) {
       return false
     }
@@ -202,11 +205,12 @@ export class ResourceService {
       if (claimed?.has(key)) {
         continue
       }
-      if (!this.matchesModuleGlob(uri, module)) {
+      const relativePath = toRootRelative(uri)
+      if (!relativePath || !this.matchesModuleGlob(uri, module)) {
         continue
       }
       const content = (await fileResolver.readFile(uri)) ?? ''
-      files.push({ uri, relativePath: vscode.workspace.asRelativePath(uri, false), content })
+      files.push({ uri, relativePath, content })
     }
     return files
   }
@@ -223,7 +227,7 @@ export class ResourceService {
 
   /** defaultNs: explicit config wins; the primary module reuses the proven detection; else shared detect. */
   private async resolveDefaultNs(module: ResolvedModule, relPaths: string[]): Promise<string> {
-    const platform = createVscodePlatform()
+    const platform = await createVscodePlatform()
     if (!platform) {
       return NS_WITHOUT_NS
     }
@@ -348,7 +352,10 @@ export class ResourceService {
 
   /** Modules whose `usages.include` matches a source file (a file may belong to several). */
   sourceModuleNames(uri: vscode.Uri): string[] {
-    const rel = vscode.workspace.asRelativePath(uri, false)
+    const rel = toRootRelative(uri)
+    if (!rel) {
+      return []
+    }
     return this.allViews()
       .filter((v) => {
         if (v.module.usages.exclude?.some((ex) => minimatch(rel, ex, { dot: true }))) {
@@ -571,7 +578,8 @@ export class ResourceService {
   getResourceFileNs(uri: vscode.Uri): Namespace | null {
     const name = this.resourceModuleName(uri)
     const view = name ? this.views.get(name) : undefined
-    return view ? view.manager.getResourceFileNs(vscode.workspace.asRelativePath(uri, false)) : null
+    const rel = toRootRelative(uri)
+    return view && rel ? view.manager.getResourceFileNs(rel) : null
   }
 
   getTranslationsPerLocale(namespace?: Namespace, moduleName?: string): Localized<object> {
@@ -656,7 +664,7 @@ export class ResourceService {
   // --- writes: route to the owning module's manager ---
 
   private relToUri(relativePath: string): vscode.Uri {
-    const root = vscode.workspace.workspaceFolders?.[0]?.uri
+    const root = loccyRoot()
     return root ? vscode.Uri.joinPath(root, relativePath) : vscode.Uri.file(relativePath)
   }
 

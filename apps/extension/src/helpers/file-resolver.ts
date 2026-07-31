@@ -3,6 +3,7 @@ import { handleError, handleErrorDebounced } from './error-handler'
 import { gitignoreHelper } from './gitignore-helper'
 import { minimatch } from 'minimatch'
 import { getResourceFormatByExt } from '@repo/shared/core/registry'
+import { getLoccyRoot, toRootRelative } from './vscode-platform'
 
 export enum FileType {
   Resource = 'Resource',
@@ -38,6 +39,11 @@ class FileResolver {
       return []
     }
 
+    const root = await getLoccyRoot()
+    if (!root) {
+      return []
+    }
+
     const includePatterns = include
     const excludePatterns = ['**/node_modules/**', ...exclude]
 
@@ -52,7 +58,7 @@ class FileResolver {
     const allFilesMap = new Map<string, vscode.Uri>()
 
     for (const includePattern of includePatterns) {
-      const files = await vscode.workspace.findFiles(includePattern, excludeGlob)
+      const files = await vscode.workspace.findFiles(new vscode.RelativePattern(root, includePattern), excludeGlob)
       for (const file of files) {
         allFilesMap.set(file.toString(), file)
       }
@@ -140,8 +146,6 @@ class FileResolver {
       return
     }
 
-    const relativePath = vscode.workspace.asRelativePath(uri)
-
     // First check cached paths
     if (this.translationFileUris.find((u) => u.toString() === uri.toString())) {
       return FileType.Resource
@@ -149,6 +153,11 @@ class FileResolver {
 
     if (this.srcFileUris.find((u) => u.toString() === uri.toString())) {
       return FileType.Source
+    }
+
+    const relativePath = toRootRelative(uri)
+    if (!relativePath) {
+      return
     }
 
     if (this.matchesResourcePattern(relativePath)) {
@@ -167,7 +176,10 @@ class FileResolver {
       return false
     }
 
-    const relativePath = vscode.workspace.asRelativePath(uri)
+    const relativePath = toRootRelative(uri)
+    if (!relativePath) {
+      return false
+    }
 
     if (type === FileType.Resource) {
       return this.matchesResourcePattern(relativePath)
@@ -240,7 +252,7 @@ class FileResolver {
     if (this.translationFileUris.find((u) => u.toString() === uriString)) {
       return
     }
-    if (this.matchesResourcePattern(vscode.workspace.asRelativePath(uri)) && !gitignoreHelper.isIgnored(uri)) {
+    if (this.shouldTrackFile(uri, FileType.Resource)) {
       this.translationFileUris.push(uri)
     }
   }
@@ -255,7 +267,7 @@ class FileResolver {
     if (this.srcFileUris.find((u) => u.toString() === uriString)) {
       return
     }
-    if (this.matchesSourcePattern(vscode.workspace.asRelativePath(uri)) && !gitignoreHelper.isIgnored(uri)) {
+    if (this.shouldTrackFile(uri, FileType.Source)) {
       this.srcFileUris.push(uri)
     }
   }

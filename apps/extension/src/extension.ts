@@ -29,6 +29,7 @@ import { WatcherManager } from './helpers/watcher/watcher-manager'
 import { findLegacyJsonConfig, hasYamlConfig, migrateJsonConfig } from './settings/migrate-json-config'
 import { loccyConfigFilename } from '@repo/types/config.types'
 import { handleError } from './helpers/error-handler'
+import { resetLoccyRoot } from './helpers/vscode-platform'
 
 export let extensionContext: vscode.ExtensionContext
 let watcherManager: WatcherManager | null = null
@@ -149,6 +150,7 @@ export async function activate(context: vscode.ExtensionContext) {
   await watcherManager.initialize()
 
   const reinit = async () => {
+    resetLoccyRoot()
     await cfg.init(context)
     await resourceService.init()
     usageService.init().then(() => updateAnnotations())
@@ -235,6 +237,7 @@ export async function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(async () => await reinit()),
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration('loccy')) {
         await reinit()

@@ -8,6 +8,7 @@ import { Logger } from '../logger'
 import { minimatch } from 'minimatch'
 import { cfg } from '../../global-config'
 import { DEFAULT_IGNORE_GLOBS } from '@repo/types/platform.types'
+import { toRootRelative } from '../vscode-platform'
 
 const DEBOUNCE_DELAY = 1000
 
@@ -155,7 +156,10 @@ export class WatcherManager {
 
     // Already filtered by DirectoryWatcher; here we just bucket by pattern category.
     for (const change of changes) {
-      const relativePath = vscode.workspace.asRelativePath(change.uri, false)
+      const relativePath = toRootRelative(change.uri)
+      if (!relativePath) {
+        continue
+      }
 
       const isResource = this.matchesAnyPattern(relativePath, this.config.translationFilePatterns.include)
       const isSource = this.matchesAnyPattern(relativePath, this.config.sourcePatterns.include)

@@ -5,18 +5,18 @@ import { handleError } from '../helpers/error-handler'
 import { fileResolver } from '../helpers/file-resolver'
 import { reportEvent } from '../telemetry/telemetry'
 import { TelemetryEvent } from '../telemetry/events'
-import { getWorkspaceFolder } from '../helpers/helpers'
+import { getLoccyRoot } from '../helpers/vscode-platform'
 
 export async function createConfigFileCmd() {
   reportEvent(TelemetryEvent.createConfigFile)
 
-  const wsFolder = await getWorkspaceFolder()
-  if (!wsFolder) {
+  const root = await getLoccyRoot()
+  if (!root) {
     vscode.window.showErrorMessage("Workspace doesn't have any folders yet")
     return
   }
 
-  const defaultConfigUri = vscode.Uri.joinPath(wsFolder.uri, loccyConfigFilename)
+  const defaultConfigUri = vscode.Uri.joinPath(root, loccyConfigFilename)
 
   try {
     const existingConfigs = await fileResolver.getFileUris([`**/${loccyConfigFilename}`])

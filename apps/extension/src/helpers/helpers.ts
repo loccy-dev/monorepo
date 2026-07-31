@@ -3,42 +3,8 @@ import { cloneDeep } from 'lodash'
 import type { LocalizedText } from '@repo/types/primitives.types'
 import { fileResolver } from './file-resolver'
 import { resourceService } from './resource-service'
-import { createVscodePlatform } from './vscode-platform'
-import { detectTranslationsLocation } from '@repo/shared/core/loccy-config/defaults-detection/detect-translations-location'
 
 export const NON_BREAKING_SPACE = ' '
-
-export async function getWorkspaceFolder(): Promise<vscode.WorkspaceFolder | null> {
-  const workspaceFolders = vscode.workspace.workspaceFolders
-  if (!workspaceFolders?.length) {
-    return null
-  }
-  if (workspaceFolders.length === 1) {
-    return workspaceFolders[0]
-  }
-
-  // multi-root, try to identify the Loccy's one
-  // 1st try - search for loccy config
-  for (const folder of workspaceFolders) {
-    const existingConfigs = await fileResolver.getFileUris([`**/loccy.{yaml,config.json}`])
-    const firstConfigUri = existingConfigs[0]
-    if (firstConfigUri) {
-      return folder
-    }
-  }
-
-  // 2nd try - i18n setup
-  for (const folder of workspaceFolders) {
-    const platform = createVscodePlatform()
-    const candidates = platform ? await detectTranslationsLocation(platform) : []
-    if (candidates.length) {
-      return folder
-    }
-  }
-
-  // 3d - just return first
-  return workspaceFolders[0]
-}
 
 function stringifyAndClean(obj: object, removeBrackets = false, removeSemicolons = false) {
   const allLocales = resourceService.allLocales
