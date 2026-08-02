@@ -59,7 +59,7 @@ More → [apps/lint](apps/lint)
 
 ```
 claude plugin marketplace add loccy-dev/monorepo --scope project
-claude plugin install loccy  --scope project
+claude plugin install loccy --scope project
 ```
 
 More → [apps/claude-plugin](apps/claude-plugin)

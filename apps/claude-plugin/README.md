@@ -18,7 +18,7 @@ Self-contained, free, no API key needed.
 
 ```
 claude plugin marketplace add loccy-dev/monorepo --scope project
-claude plugin install loccy  --scope project
+claude plugin install loccy --scope project
 ```
 
 ## Skills
