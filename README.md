@@ -58,8 +58,8 @@ More → [apps/lint](apps/lint)
 - Help across the Loccy ecosystem: setup from scratch, styleguide authoring, and the rest
 
 ```
-/plugin marketplace add loccy-dev/monorepo
-/plugin install loccy
+claude plugin marketplace add loccy-dev/monorepo --scope project
+claude plugin install loccy  --scope project
 ```
 
 More → [apps/claude-plugin](apps/claude-plugin)
