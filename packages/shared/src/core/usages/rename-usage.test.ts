@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { KeypathInfo } from '@repo/types/framework.types'
 import { rewriteUsagesInSource } from './rename-usage'
+import { NS_WITHOUT_NS } from '../helpers/namespace.helpers'
 
 /** A usage of `literal` inside `content`, as the scanner reports it. */
 function usage(content: string, literal: string, extra: Partial<KeypathInfo> = {}): KeypathInfo {
@@ -8,7 +9,7 @@ function usage(content: string, literal: string, extra: Partial<KeypathInfo> = {
   return {
     loc: { start, end: start + literal.length, line: 0 },
     content: literal,
-    ns: '_',
+    ns: NS_WITHOUT_NS,
     keypaths: [literal.slice(1, -1)],
     type: 'static',
     ...extra,

@@ -2,12 +2,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import { loccyConfigFilename, type LoccyConfig } from '@repo/types/config.types'
 import type { Platform } from '@repo/types/platform.types'
-import {
-  readConfigFile,
-  withOnlyModule,
-  LoccyConfigError,
-  DEPRECATED_STYLEGUIDE_FIELDS,
-} from '@repo/shared/core/loccy-config/loccy-config'
+import { readConfigFile, withOnlyModule, LoccyConfigError } from '@repo/shared/core/loccy-config/loccy-config'
 import { LOCCY_DOCS } from '@repo/shared/core/config'
 
 /** One-line description of the config's modules for the load spinner. */
@@ -34,18 +29,19 @@ export async function loadConfigOrExit(platform: Platform, configPath: string): 
     process.exit(1)
   }
   spinner.succeed(`Loaded ${configPath} (${describeModules(config)})`)
-  warnDeprecatedStyleguide(config, configPath)
+  warnDroppedStyleguide(config, configPath)
   return config
 }
 
-/** Fields the current schema no longer has are ignored, so say which ones and where the new shape is documented. */
-function warnDeprecatedStyleguide(config: LoccyConfig, configPath: string): void {
-  const fields = config.deprecatedStyleguideFields
-  if (!fields?.length) return
+/** Fields the schema could not take are dropped on read, so name them and point at the docs. */
+function warnDroppedStyleguide(config: LoccyConfig, configPath: string): void {
+  const dropped = config.droppedStyleguideFields
+  if (!dropped?.length) return
 
-  console.log(chalk.yellow(`  ${configPath} styleguide uses an outdated schema, ignored: ${fields.join(', ')}`))
-  for (const field of fields) {
-    console.log(chalk.gray(`    ${field} -> ${DEPRECATED_STYLEGUIDE_FIELDS[field]}`))
+  const fields = dropped.map(({ field }) => field).join(', ')
+  console.log(chalk.yellow(`  ${configPath} styleguide does not match the schema, ignored: ${fields}`))
+  for (const { field, reason } of dropped) {
+    console.log(chalk.gray(`    ${field}: ${reason}`))
   }
   console.log(chalk.gray(`    latest schema: ${LOCCY_DOCS}/config/styleguide`))
 }

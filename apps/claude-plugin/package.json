@@ -1,0 +1,31 @@
+{
+  "name": "@loccy-dev/claude-plugin",
+  "private": true,
+  "description": "Source for the Loccy Claude Code plugin.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "dev": "node esbuild.config.js --watch",
+    "format": "prettier --write --list-different \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit && prettier --check \"src/**/*.ts\" && node esbuild.config.js --check",
+    "test": "vitest run",
+    "build:check": "node esbuild.config.js --check",
+    "flt": "npm run format && npm run build && npm run lint && npm run test"
+  },
+  "devDependencies": {
+    "@repo/node-platform": "workspace:*",
+    "@repo/shared": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@types/node": "^25.6.0",
+    "commander": "^14.0.3",
+    "esbuild": "^0.28.0",
+    "pathe": "^2.0.3",
+    "picomatch": "^4.0.5",
+    "prettier": "^3.8.2",
+    "@types/picomatch": "^4.0.2",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.4"
+  }
+}

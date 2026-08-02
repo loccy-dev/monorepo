@@ -239,8 +239,15 @@ export interface ResolvedModule {
 export interface LoccyConfig {
   modules: Record<string, ResolvedModule>
   styleguide?: StyleguideConfig
-  /** deprecated fields silently dropped, but reported here */
-  deprecatedStyleguideFields?: string[]
+  /** styleguide fields the schema could not take, dropped on read and reported here */
+  droppedStyleguideFields?: DroppedStyleguideField[]
+}
+
+/** A styleguide field left out of the loaded config, and why. Dropped on read, never refused. */
+export interface DroppedStyleguideField {
+  /** The field as the file spells it, e.g. `glossary` or `localeRules.de-AT`. */
+  field: string
+  reason: string
 }
 
 // --- Raw file shape (what a user actually authors in loccy.yaml) ---

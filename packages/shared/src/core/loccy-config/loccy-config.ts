@@ -1,5 +1,6 @@
 import type { Platform } from '@repo/types/platform.types'
 import type {
+  DroppedStyleguideField,
   LoccyConfig,
   ResolvedModule,
   StyleguideConfig,
@@ -36,28 +37,61 @@ const localeValueSchema = z.union([
   }),
 ])
 
-const styleguideSchema: z.ZodType<StyleguideConfig, z.ZodTypeDef, unknown> = z.object({
-  product: z.string().optional(),
-  voice: z.string().optional(),
-  mechanics: z.string().optional(),
-  localeRules: z.record(z.string(), localeValueSchema).optional(),
-  doNotTranslate: doNotTranslateSchema.optional(),
-  glossary: glossarySchema.optional(),
-  keys: z.string().optional(),
-})
+/** One schema per field, so a field that fails to parse is dropped without the rest going with it. */
+const styleguideFieldSchemas = new Map<string, z.ZodTypeAny>([
+  ['product', z.string()],
+  ['voice', z.string()],
+  ['mechanics', z.string()],
+  ['localeRules', z.record(z.string(), localeValueSchema)],
+  ['doNotTranslate', doNotTranslateSchema],
+  ['glossary', glossarySchema],
+  ['keys', z.string()],
+])
 
-/** Styleguide fields from before the split by scope, and what each became. Dropped on read, not
- * rejected, so an unmigrated file still loads; consumers warn from what `resolveConfig` reports. */
-export const DEPRECATED_STYLEGUIDE_FIELDS: Record<string, string> = {
-  code: 'keys',
-  global: 'product, voice and mechanics, split by what each rule is about',
-  locales: 'localeRules',
+/** Styleguide fields from before the split by scope, and what became of each. */
+const DEPRECATED_STYLEGUIDE_FIELDS: Record<string, string> = {
+  code: 'renamed to keys',
+  global: 'split into product, voice and mechanics, by what each rule is about',
+  locales: 'renamed to localeRules',
 }
 
-function deprecatedStyleguideFieldsIn(styleguide: unknown): string[] | undefined {
-  if (!styleguide || typeof styleguide !== 'object') return undefined
-  const found = Object.keys(styleguide).filter((field) => field in DEPRECATED_STYLEGUIDE_FIELDS)
-  return found.length ? found : undefined
+function firstIssueIn(error: z.ZodError): string {
+  const issue = error.issues[0]
+  if (!issue) return 'does not match the schema'
+  const path = issue.path.join('.')
+  return path ? `${path}: ${issue.message}` : issue.message
+}
+
+/**
+ * The styleguide, with anything the schema cannot take left out rather than refused: a hard stop
+ * takes every tool down over one hand-authored field. What was dropped is reported for migration.
+ */
+function parseStyleguide(raw: unknown): { styleguide: StyleguideConfig; dropped: DroppedStyleguideField[] } {
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    return {
+      styleguide: {},
+      dropped: [{ field: 'styleguide', reason: 'must be a block of rules, not a single value' }],
+    }
+  }
+
+  const styleguide: Record<string, unknown> = {}
+  const dropped: DroppedStyleguideField[] = []
+
+  for (const [field, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value == null) continue
+
+    const schema = styleguideFieldSchemas.get(field)
+    if (!schema) {
+      dropped.push({ field, reason: DEPRECATED_STYLEGUIDE_FIELDS[field] ?? 'not a styleguide field' })
+      continue
+    }
+
+    const parsed = schema.safeParse(value)
+    if (parsed.success) styleguide[field] = parsed.data
+    else dropped.push({ field, reason: firstIssueIn(parsed.error) })
+  }
+
+  return { styleguide: styleguide as StyleguideConfig, dropped }
 }
 
 const DEFAULT_MODULE = 'default'
@@ -157,19 +191,32 @@ export function resolveConfig(user: PartialLoccyConfig, detected: LoccyConfig | 
 
   // A `styleguide:` key whose fields are all commented out parses to `null`, not absent — treat it
   // the same as omitted.
-  const styleguide: StyleguideConfig | undefined =
-    user.styleguide != null ? styleguideSchema.parse(user.styleguide) : base?.styleguide
+  const authored = user.styleguide != null ? parseStyleguide(user.styleguide) : null
+  const styleguide = authored ? authored.styleguide : base?.styleguide
+  const dropped = [...(authored?.dropped ?? []), ...pruneBrokenOverrides(styleguide)]
 
-  for (const { locale, extends: extendsLocale } of partialOverridesOf(styleguide?.localeRules)) {
-    if (!locale || !extendsLocale) {
-      throw new LoccyConfigError('styleguide.localeRules entries require both a locale key and `extends`')
-    }
-    if (locale === extendsLocale) {
-      throw new LoccyConfigError(`styleguide.localeRules: "${locale}" cannot extend itself`)
-    }
+  return { modules, styleguide, droppedStyleguideFields: dropped.length ? dropped : undefined }
+}
+
+function brokenOverrideReason(locale: string, extendsLocale: string): string | null {
+  if (!locale || !extendsLocale) return 'a partial override needs both a locale key and `extends`'
+  if (locale === extendsLocale) return `"${locale}" cannot extend itself`
+  return null
+}
+
+/** Broken overrides are dropped, not refused, so the rules around them still load. */
+function pruneBrokenOverrides(styleguide: StyleguideConfig | undefined): DroppedStyleguideField[] {
+  const rules = styleguide?.localeRules
+  if (!rules) return []
+
+  const dropped: DroppedStyleguideField[] = []
+  for (const { locale, extends: extendsLocale } of partialOverridesOf(rules)) {
+    const reason = brokenOverrideReason(locale, extendsLocale)
+    if (!reason) continue
+    dropped.push({ field: `localeRules.${locale}`, reason })
+    delete rules[locale]
   }
-
-  return { modules, styleguide, deprecatedStyleguideFields: deprecatedStyleguideFieldsIn(user.styleguide) }
+  return dropped
 }
 
 /** Read `loccy.yaml` and resolve it. Auto-detection bootstraps a config-less/module-less file; an explicit `modules:` block is authoritative (no gap-filling). */

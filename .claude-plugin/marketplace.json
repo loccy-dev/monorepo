@@ -1,0 +1,15 @@
+{
+  "name": "loccy",
+  "description": "The Loccy i18n toolkit for Claude Code.",
+  "owner": {
+    "name": "Loccy",
+    "url": "https://loccy.dev"
+  },
+  "plugins": [
+    {
+      "name": "loccy",
+      "source": "./apps/claude-plugin/plugin",
+      "description": "Styleguide-aware i18n: search, add, rename and remove translation keys across every locale in one call."
+    }
+  ]
+}

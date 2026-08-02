@@ -33,7 +33,7 @@ function renderLayout(layout: LayoutPattern): string {
 }
 
 /** Render one module's body, indented under its `modules.<name>:` key. */
-function renderModule(module: LoccyConfig['modules'][string]): string {
+export function renderModule(module: LoccyConfig['modules'][string]): string {
   const { framework, usages, translations } = module
 
   // Emit `layout` only when it differs from the framework's convention — a default layout is
@@ -78,13 +78,21 @@ function hasRealStyleguide(styleguide: LoccyConfig['styleguide']): boolean {
   return !!styleguide && Object.values(styleguide).some((v) => (Array.isArray(v) ? v.length : !!v))
 }
 
+/**
+ * The styleguide as it is written in `loccy.yaml`, every field and every nested value. Authored
+ * order is kept, since a styleguide is read as a document rather than looked up by key.
+ */
+export function renderStyleguideYaml(styleguide: LoccyConfig['styleguide']): string {
+  return dump({ styleguide }, { indent: 2, lineWidth: -1, noRefs: true, sortKeys: false })
+}
+
 export function renderLoccyConfigYaml(config: LoccyConfig): string {
   const modulesYaml = Object.entries(config.modules)
     .map(([name, module]) => `  ${name}:\n${renderModule(module)}`)
     .join('\n\n')
 
   const styleguideYaml = hasRealStyleguide(config.styleguide)
-    ? dump({ styleguide: config.styleguide }, { indent: 2, lineWidth: -1, noRefs: true, sortKeys: false })
+    ? renderStyleguideYaml(config.styleguide)
     : STYLEGUIDE_SCAFFOLD
 
   return `${CONFIG_YAML_HEADER}

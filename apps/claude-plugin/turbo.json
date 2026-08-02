@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    // The installable plugin is the build output: it ships committed, so a cache hit has to restore it.
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["plugin/bin/**"]
+    }
+  }
+}

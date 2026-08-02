@@ -121,13 +121,34 @@ describe('resolveConfig', () => {
     ).toEqual({ 'de-CH': { extends: 'de' } })
   })
 
-  it('throws when a localeRules override entry is missing `extends` or self-referential', () => {
-    expect(() =>
-      resolveConfig({ styleguide: { localeRules: { 'de-CH': { extends: '' } } as never } }, detected),
-    ).toThrow(LoccyConfigError)
-    expect(() => resolveConfig({ styleguide: { localeRules: { de: { extends: 'de' } } } }, detected)).toThrow(
-      LoccyConfigError,
+  it('drops a localeRules override that names no parent or names itself, keeping the rest', () => {
+    const config = resolveConfig(
+      {
+        styleguide: {
+          localeRules: { 'de-CH': { extends: '' }, de: { extends: 'de' }, 'de-AT': { extends: 'de' } } as never,
+        },
+      },
+      detected,
     )
+
+    expect(config.styleguide?.localeRules).toEqual({ 'de-AT': { extends: 'de' } })
+    expect(config.droppedStyleguideFields).toEqual([
+      { field: 'localeRules.de-CH', reason: 'a partial override needs both a locale key and `extends`' },
+      { field: 'localeRules.de', reason: '"de" cannot extend itself' },
+    ])
+  })
+
+  it('drops a styleguide field the schema cannot take, rather than refusing the whole config', () => {
+    const config = resolveConfig(
+      { styleguide: { voice: 'Friendly.', glossary: [{ term: 'Loccy' }], code: 'short keys' } as never },
+      detected,
+    )
+
+    expect(config.styleguide).toEqual({ voice: 'Friendly.' })
+    expect(config.droppedStyleguideFields).toEqual([
+      { field: 'glossary', reason: '0.definition: Required' },
+      { field: 'code', reason: 'renamed to keys' },
+    ])
   })
 
   it('resolves styleguide with nested glossary / doNotTranslate', () => {

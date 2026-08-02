@@ -1,0 +1,13 @@
+{
+  "name": "loccy",
+  "version": "0.1.0",
+  "description": "Styleguide-aware i18n: search, add, rename and remove translation keys across every locale in one call.",
+  "author": {
+    "name": "Loccy",
+    "url": "https://loccy.dev"
+  },
+  "homepage": "https://loccy.dev",
+  "repository": "https://github.com/loccy-dev/monorepo",
+  "license": "MIT",
+  "keywords": ["i18n", "l10n", "translations", "localization", "react-i18next", "next-intl", "vue-i18n"]
+}

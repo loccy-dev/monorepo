@@ -7,9 +7,9 @@ Modern i18n toolkit for React & Vue. Mostly free and open-source. All tools powe
 <br>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/extension-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="images/extension-light.png">
-  <img alt="Extension icon" src="images/extension-light.png" width="48">
+  <source media="(prefers-color-scheme: dark)" srcset="images/extension-vscode-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="images/extension-vscode-light.png">
+  <img alt="Extension icon" src="images/extension-vscode-light.png" height="48">
 </picture>
 
 ## Editor extension
@@ -28,7 +28,7 @@ More → [apps/extension](apps/extension)
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/linter-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="images/linter-light.png">
-  <img alt="Terminal icon" src="images/linter-light.png" width="48">
+  <img alt="Terminal icon" src="images/linter-light.png" height="48">
 </picture>
 
 ## i18n linter
@@ -37,7 +37,33 @@ Keeps your translations clean and sorted. Catches unused or untranslated keys, o
 
 Perfect for CI/CD.
 
+```bash
+npm i -D @loccy-dev/lint
+```
+
 More → [apps/lint](apps/lint)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/extension-claude-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="images/extension-claude-light.png">
+  <img alt="Claude Code plugin icon" src="images/extension-claude-light.png" height="48">
+</picture>
+
+## Claude Code plugin (experimental)
+
+- Makes sure the agent is styleguide-aware every time it adds or edits translations (tone, terminology, etc.)
+- Tooling for faster CRUD on messages e.g. `echo '{"login.title":{"en":"Sign in","de":"Anmelden"}}' | loccy-tool upsert-message` writes every locale at once, instead of finding the translation files and patching each one separately
+- Help across the Loccy ecosystem: setup from scratch, styleguide authoring, and the rest
+
+```
+/plugin marketplace add loccy-dev/monorepo
+/plugin install loccy
+```
+
+More → [apps/claude-plugin](apps/claude-plugin)
+
 
 ## Project structure
 
@@ -47,6 +73,7 @@ Turbo monorepo with shared logic extracted to `packages/`.
 apps/
   ├── extension/      # VS Code extension
   ├── lint/           # CLI linter
+  ├── claude-plugin/  # Claude Code plugin
   └── docs/           # docs content published at loccy.dev/docs
 packages/
   ├── shared/         # core logic

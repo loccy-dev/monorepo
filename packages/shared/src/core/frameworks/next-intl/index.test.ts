@@ -3,9 +3,10 @@ import type { FrameworkScanContext } from '../../contracts'
 import { nextIntlFramework } from './index'
 import { icuMessageFormat } from '../../message-formats/icu'
 import { getFramework, resolveMessageFormatId } from '../../registry'
+import { NS_WITHOUT_NS } from '../../helpers/namespace.helpers'
 
 const ctx = (overrides: Partial<FrameworkScanContext> = {}): FrameworkScanContext => ({
-  defaultNs: '_',
+  defaultNs: NS_WITHOUT_NS,
   customFunctionNames: [],
   dynamicKeyResolver: null,
   messageFormat: icuMessageFormat,

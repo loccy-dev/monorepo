@@ -4,6 +4,7 @@ import { UserSettings } from './settings/user-settings.types'
 import { fileResolver } from './helpers/file-resolver'
 import { detectDefaultsUseDoubleQuotes } from './helpers/detect-defaults/detect-default-double-quotes'
 import { createVscodePlatform } from './helpers/vscode-platform'
+import { warnDroppedStyleguide } from './settings/warn-dropped-styleguide'
 import { readConfigOrDetect } from '@repo/shared/core/loccy-config/loccy-config'
 import { allSupportedLanguages as sharedAllSupportedLanguages } from '@repo/shared/core/config'
 import { type LoccyConfig, type ResolvedModule, type StyleguideConfig } from '@repo/types/config.types'
@@ -103,6 +104,7 @@ class GlobalConfig {
     }
 
     this.styleguide = resolvedConfig.styleguide
+    warnDroppedStyleguide(resolvedConfig)
 
     return true
   }
