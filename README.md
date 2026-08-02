@@ -46,7 +46,8 @@ Turbo monorepo with shared logic extracted to `packages/`.
 ```
 apps/
   ├── extension/      # VS Code extension
-  └── lint/           # CLI linter
+  ├── lint/           # CLI linter
+  └── docs/           # docs content published at loccy.dev/docs
 packages/
   ├── shared/         # core logic
   ├── types/          # shared types + config schema
