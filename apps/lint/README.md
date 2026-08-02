@@ -54,7 +54,7 @@ Each rule lives on its axis in `loccy.yaml`. [Configuration docs.](https://loccy
 
 | Rule | What it catches |
 | :--- | :--- |
-| `translations.noUntranslatedKeys` | Keys missing or empty in some locales |
+| `translations.noUntranslatedKeys` | Keys missing or empty in some locales (`true`, or a list of locales to check) |
 | `translations.sortKeys` | Unsorted translation files (`loccy format` fixes them) |
 | `usages.noUnusedKeys` | Keys never referenced in code (`loccy lint --fix` removes them) |
 | `usages.noUnresolvedKeys` | Keys used in code but absent from translations |

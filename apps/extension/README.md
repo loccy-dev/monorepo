@@ -52,7 +52,7 @@ Reuse a translation that already exists instead of creating a duplicate. Place y
 
 ### 5 • Missing-translation warnings
 
-When a keypath has at least one empty or missing translation, the inline preview shows a warning listing the affected locales. Partial-override locales are excluded, their empty keys are intentional.
+When a keypath has at least one empty or missing translation, the inline preview shows a warning.
 
 ![Inline preview showing a missing-translation warning listing the affected locales](https://loccy.dev/extension-features/missing-translation-warning.png)
 

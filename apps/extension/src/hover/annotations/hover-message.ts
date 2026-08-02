@@ -10,7 +10,7 @@ import { usageService } from '../../helpers/usage-service'
 import type { Loc } from '@repo/types/platform.types'
 import type { KeypathInfo } from '@repo/types/framework.types'
 import type { LocalizedText, Locale, Namespace } from '@repo/types/primitives.types'
-import { partialOverridesOf } from '@repo/types/config.types'
+import { untranslatedCheckLocales } from '@repo/types/config.types'
 import { CmdActionsWithTranslationsArgs } from '../actions-with-translations-cmd'
 import { resolveMessageReferences } from '../../editor-integration/frameworks/resolve-message-references'
 import { CmdEditTranslationArgs } from '../edit-translation-cmd'
@@ -483,17 +483,13 @@ export function renderTranslationPreviewForKeypath(keypathInfo: KeypathInfo, mod
     )
   }
 
-  // Exclude partial overrides (partial-by-design — their empty keys are intentional, inherited
-  // from their base at runtime).
-  const excludeLocales = partialOverridesOf(cfg.resolvedConfig?.styleguide?.localeRules).map((o) => o.locale)
+  // Same locales the lint rule checks.
+  const checkedLocales = untranslatedCheckLocales(view.module.translations.noUntranslatedKeys, view.allLocales)
 
-  // Gate on the rule; for plurals, only check missing for locales that need this suffix.
-  const emptyLocales =
-    view.module.translations.noUntranslatedKeys === false
-      ? []
-      : getEmptyLocalesForKeypath(primaryKeypath, translationsForKey, keypathInfo, moduleName).filter(
-          (locale) => !excludeLocales.includes(locale),
-        )
+  // For plurals, only check missing for locales that need this suffix.
+  const emptyLocales = getEmptyLocalesForKeypath(primaryKeypath, translationsForKey, keypathInfo, moduleName).filter(
+    (locale) => checkedLocales.includes(locale),
+  )
 
   const warningText = renderMissingWarning(emptyLocales)
   const separator = warningText && translationForDisplayLocale ? ' • ' : ''

@@ -30,6 +30,9 @@ export type NoUnresolvedKeysRule =
       excludeKeys?: ExcludeKeys
     }
 
+/** `noUntranslatedKeys` rule: enable/disable, or the exact locales to check. */
+export type NoUntranslatedKeysRule = boolean | Locale[]
+
 // --- Modules: one i18n setup each (usage `usages` + storage `translations`) ---
 
 /**
@@ -83,8 +86,11 @@ export interface TranslationsConfig {
   /** How file paths map to locales and namespaces. */
   layout: LayoutPattern
   exclude?: string[]
-  /** Lint: require every key translated & non-empty in all locales, except partial-override locales. Default: true. */
-  noUntranslatedKeys?: boolean
+  /**
+   * Lint: require every key translated & non-empty. `true` checks every detected locale; a locale
+   * list checks exactly those, for locales that are deliberately incomplete. Default: true.
+   */
+  noUntranslatedKeys?: NoUntranslatedKeysRule
   /** Lint: flag plurals missing a required form for a locale (per its CLDR rule). Default: true. */
   checkPlurals?: boolean
   /** Lint: deeply sort keys alphabetically. Default: false. */
@@ -156,6 +162,19 @@ export function partialOverridesOf(localeRules: Record<string, LocaleValue> | un
     out.push({ locale, extends: value.extends, style: value.style })
   }
   return out
+}
+
+/**
+ * Locales the untranslated check covers: the configured list when the rule names one, else every
+ * detected locale. Empty means nothing to check.
+ */
+export function untranslatedCheckLocales(
+  rule: NoUntranslatedKeysRule | undefined,
+  detectedLocales: Locale[],
+): Locale[] {
+  if (rule === false) return []
+  if (Array.isArray(rule)) return rule
+  return detectedLocales
 }
 
 /**

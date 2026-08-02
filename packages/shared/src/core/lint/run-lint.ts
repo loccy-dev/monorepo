@@ -1,5 +1,5 @@
 import {
-  partialOverridesOf,
+  untranslatedCheckLocales,
   type LoccyConfig,
   type NoUnresolvedKeysRule,
   type ResolvedModule,
@@ -38,10 +38,13 @@ function resolveRule(rule: NoUnresolvedKeysRule | undefined): { enabled: boolean
   return { enabled: rule.enabled ?? true, excludeKeys: rule.excludeKeys ?? [] }
 }
 
-/** Locales the translation checks cover: everything present except the partial overrides, whose gaps are deliberate. */
-function localesToCheck(translations: TranslationEntry[], partialOverrideLocales: string[]): Locale[] {
-  const skip = new Set(partialOverrideLocales)
-  return [...new Set(translations.map((entry) => entry.locale))].filter((locale) => !skip.has(locale))
+function detectedLocales(translations: TranslationEntry[]): Locale[] {
+  return [...new Set(translations.map((entry) => entry.locale))]
+}
+
+/** Locales the untranslated check covers for this module (its rule may name them explicitly). */
+function untranslatedLocales(module: ResolvedModule, translations: TranslationEntry[]): Locale[] {
+  return untranslatedCheckLocales(module.translations.noUntranslatedKeys, detectedLocales(translations))
 }
 
 /** Group entries by namespace and keypath, keeping each locale's value and the file it came from. */
@@ -68,15 +71,14 @@ function groupByKey(
 }
 
 /** Keys some locale is missing or leaves empty. */
-export function checkUntranslatedKeys(
-  translations: TranslationEntry[],
-  module: ResolvedModule,
-  partialOverrideLocales: string[],
-): LintFinding[] {
-  if (module.translations.noUntranslatedKeys === false) return []
+export function checkUntranslatedKeys(translations: TranslationEntry[], module: ResolvedModule): LintFinding[] {
+  const rule = module.translations.noUntranslatedKeys
+  if (rule === false) return []
 
-  const checkLocales = localesToCheck(translations, partialOverrideLocales)
+  const checkLocales = untranslatedLocales(module, translations)
   if (!checkLocales.length) {
+    // A rule naming no locale is a deliberate opt-out; finding none to check is a config problem.
+    if (Array.isArray(rule)) return []
     return [
       {
         rule: 'scan',
@@ -116,16 +118,11 @@ export function checkUntranslatedKeys(
  * the required CLDR categories exist for every locale that uses the plural. Absent/empty values are
  * left to the untranslated check: this reports incompleteness only.
  */
-function checkPluralCompleteness(
-  translations: TranslationEntry[],
-  module: ResolvedModule,
-  partialOverrideLocales: string[],
-): LintFinding[] {
+function checkPluralCompleteness(translations: TranslationEntry[], module: ResolvedModule): LintFinding[] {
   if (module.translations.checkPlurals === false) return []
 
   const messageFormat = resolveActiveMessageFormat(module)
-  const skip = new Set(partialOverrideLocales)
-  const checkLocales = localesToCheck(translations, partialOverrideLocales)
+  const checkLocales = detectedLocales(translations)
   if (!checkLocales.length) return []
 
   const findings: LintFinding[] = []
@@ -187,7 +184,7 @@ function checkPluralCompleteness(
       groups.set(id, group)
     }
     group.categories.add(parsed.category)
-    if (entry.translation?.trim() && !skip.has(entry.locale)) {
+    if (entry.translation?.trim()) {
       if (!group.presentByLocale.has(entry.locale)) group.presentByLocale.set(entry.locale, new Set())
       group.presentByLocale.get(entry.locale)!.add(parsed.category)
     }
@@ -383,19 +380,18 @@ async function lintModule(
   platform: Platform,
   module: ResolvedModule,
   translations: TranslationEntry[],
-  partialOverrideLocales: string[],
   fix: boolean,
 ): Promise<ModuleLintReport> {
-  const findings = checkUntranslatedKeys(translations, module, partialOverrideLocales)
-  const plurals = PLURAL_CHECKS_ENABLED ? checkPluralCompleteness(translations, module, partialOverrideLocales) : []
+  const findings = checkUntranslatedKeys(translations, module)
+  const plurals = PLURAL_CHECKS_ENABLED ? checkPluralCompleteness(translations, module) : []
   const usage = await checkUsages(platform, module, translations, fix)
 
   return {
     module: module.name,
     findings: [...findings, ...plurals, ...usage.findings],
     fixedCount: usage.fixedCount,
-    detectedLocales: [...new Set(translations.map((entry) => entry.locale))].sort(),
-    checkedLocales: localesToCheck(translations, partialOverrideLocales),
+    detectedLocales: detectedLocales(translations).sort(),
+    checkedLocales: untranslatedLocales(module, translations),
   }
 }
 
@@ -434,14 +430,11 @@ export async function runLint(
     })
   }
 
-  const partialOverrideLocales = partialOverridesOf(config.styleguide?.localeRules).map((override) => override.locale)
   const reports: ModuleLintReport[] = []
 
   for (const module of Object.values(config.modules)) {
     progress.onModuleStart?.(module)
-    reports.push(
-      await lintModule(platform, module, entriesByModule.get(module.name) ?? [], partialOverrideLocales, fix),
-    )
+    reports.push(await lintModule(platform, module, entriesByModule.get(module.name) ?? [], fix))
   }
 
   return summarizeLint(reports)

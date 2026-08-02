@@ -43,16 +43,16 @@ const INIT_PROMPT = `Set up Loccy's config (i18n toolkit) in this project.
 4. Clear false positives:
    - Dynamically-built keys: whitelist with a \`// loccy-used-keys: status.*\`
      comment next to where the key is built.
-   - A regional locale that intentionally holds only overrides (e.g. de-CH on
-     top of de): add \`{ extends: <base> }\` for it under \`styleguide.localeRules\`
-     so lint stops counting its inherited keys as missing. Set \`extends\` only —
-     the \`style\` prose is a human's to write.
+   - A locale whose keys are intentionally incomplete (still being filled in, or a
+     regional variant inheriting from its base at runtime, e.g. de-CH on top of de):
+     list the locales that must be complete in \`translations.noUntranslatedKeys\`
+     (e.g. \`['en', 'de']\`), and lint checks only those.
 5. Re-run \`loccy lint\` until only genuine issues remain.
 6. If the generated config didn't set \`translations.sortKeys: true\`,
    ask the user whether they want keys sorted alphabetically — if yes,
    set it and run \`loccy format\`.
 
-Note: apart from those \`extends\` entries, leave the \`styleguide\` sample commented — voice, glossary and terms are a human's job.`
+Note: leave the \`styleguide\` sample commented — voice, glossary and terms are a human's job.`
 
 /** Home output when there is no config yet: onboarding. Leads with a copy-paste prompt that
  * hands the whole setup to the user's AI agent, then the manual path as a fallback. */

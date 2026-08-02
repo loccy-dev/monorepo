@@ -76,7 +76,7 @@ export interface ModuleLintReport {
   fixedCount: number
   /** Every locale the translation files yielded. */
   detectedLocales: Locale[]
-  /** Of those, the ones the translation checks covered: partial overrides are excluded. */
+  /** The locales the untranslated check covered, per the module's `noUntranslatedKeys`. */
   checkedLocales: Locale[]
 }
 

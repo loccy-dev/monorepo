@@ -191,39 +191,51 @@ describe('checkUntranslatedKeys', () => {
         entry({ keypath: 'a', locale: 'fr' }),
       ],
       module,
-      [],
     )
     expect(findings).toMatchObject([{ kind: 'missing', key: 'b' }])
   })
 
   it('only compares across detected locales, so a single-locale project has nothing to flag', () => {
-    expect(checkUntranslatedKeys([entry({ keypath: 'a' }), entry({ keypath: 'b' })], module, [])).toEqual([])
+    expect(checkUntranslatedKeys([entry({ keypath: 'a' }), entry({ keypath: 'b' })], module)).toEqual([])
   })
 
   it('flags an empty-string translation as untranslated', () => {
     const findings = checkUntranslatedKeys(
       [entry({ keypath: 'a', locale: 'en' }), entry({ keypath: 'a', locale: 'fr', translation: '  ' })],
       module,
-      [],
     )
     expect(findings).toMatchObject([{ kind: 'empty', key: 'a' }])
   })
 
-  it('leaves a partial-override locale alone, since its gaps are inherited on purpose', () => {
-    const findings = checkUntranslatedKeys(
-      [
-        entry({ keypath: 'a', locale: 'de' }),
-        entry({ keypath: 'b', locale: 'de' }),
-        entry({ keypath: 'a', locale: 'de-CH' }),
-      ],
-      module,
-      ['de-CH'],
-    )
-    expect(findings).toEqual([])
+  it('reports a module whose glob matched no locale rather than passing it silently', () => {
+    expect(checkUntranslatedKeys([], module)).toMatchObject([{ rule: 'scan', kind: 'no-locales' }])
   })
 
-  it('reports a module whose glob matched no locale rather than passing it silently', () => {
-    expect(checkUntranslatedKeys([], module, [])).toMatchObject([{ rule: 'scan', kind: 'no-locales' }])
+  it('checks only the locales the rule names, ignoring the rest', () => {
+    const scoped = makeModule({ translations: { noUntranslatedKeys: ['en'] } })
+    const findings = checkUntranslatedKeys(
+      [entry({ keypath: 'a', locale: 'en' }), entry({ keypath: 'b', locale: 'fr' })],
+      scoped,
+    )
+    expect(findings).toMatchObject([{ kind: 'missing', key: 'b', locales: [{ locale: 'en', value: null }] }])
+  })
+
+  it('leaves a deliberately incomplete locale alone once the rule stops naming it', () => {
+    const scoped = makeModule({ translations: { noUntranslatedKeys: ['de'] } })
+    const translations = [
+      entry({ keypath: 'a', locale: 'de' }),
+      entry({ keypath: 'b', locale: 'de' }),
+      entry({ keypath: 'a', locale: 'de-CH' }),
+    ]
+    expect(checkUntranslatedKeys(translations, scoped)).toEqual([])
+    // The default rule has no styleguide to consult, so de-CH's gap is a finding until it's scoped out.
+    expect(checkUntranslatedKeys(translations, module)).toMatchObject([{ kind: 'missing', key: 'b' }])
+  })
+
+  it('treats an empty locale list as an opt-out, not as a module with no locales', () => {
+    const none = makeModule({ translations: { noUntranslatedKeys: [] } })
+    expect(checkUntranslatedKeys([entry({ keypath: 'a' })], none)).toEqual([])
+    expect(checkUntranslatedKeys([], none)).toEqual([])
   })
 
   it('carries every locale value, so a renderer can show the key filled in and blank side by side', () => {
@@ -233,7 +245,6 @@ describe('checkUntranslatedKeys', () => {
         entry({ keypath: 'a', locale: 'fr', translation: '' }),
       ],
       module,
-      [],
     )
     expect(findings[0]).toMatchObject({
       locales: [

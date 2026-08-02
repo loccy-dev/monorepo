@@ -95,8 +95,8 @@
               }
             },
             "noUntranslatedKeys": {
-              "type": "boolean",
-              "description": "Lint: require every key translated & non-empty in all locales, except partial-override locales. Default: true."
+              "$ref": "#/$defs/NoUntranslatedKeysRule",
+              "description": "Lint: require every key translated & non-empty. `true` checks every detected locale; a locale list checks exactly those, for locales that are deliberately incomplete. Default: true."
             },
             "sortKeys": {
               "type": "boolean",
@@ -157,6 +157,23 @@
         }
       ],
       "description": "How resource files are laid out.\n- a single pattern: `{locale}.json`, `{locale}/{namespace}.json`\n- per-locale patterns keyed by locale, with `*` as the fallback — for irregular conventions   (e.g. a suffix-less default file): `{ en: 'messages.properties', '*': 'messages_{locale}.properties' }`"
+    },
+    "NoUntranslatedKeysRule": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Locale"
+          }
+        }
+      ],
+      "description": "`noUntranslatedKeys` rule: enable/disable, or the exact locales to check."
+    },
+    "Locale": {
+      "type": "string"
     },
     "StyleguideConfig": {
       "type": "object",
