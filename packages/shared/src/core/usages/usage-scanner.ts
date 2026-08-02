@@ -25,6 +25,11 @@ export interface UsageScannerOptions {
 
 export interface ScanResult {
   perFile: Map<string, KeypathInfo[]>
+  /**
+   * Source files the globs actually matched. Zero means nothing was looked at, which no count of
+   * findings can express: `perFile` holds only the files that matched a key.
+   */
+  scannedFiles: number
   /** `loccy-used-keys` directives found in scanned sources, tagged with their file. */
   usedKeyDirectives: (UsedKeyDirective & { file: string })[]
 }
@@ -34,6 +39,11 @@ export class UsageScanner {
     private readonly platform: Platform,
     private readonly options: UsageScannerOptions,
   ) {}
+
+  /** Namespace a usage belongs to when its call site names none. */
+  get defaultNs(): string {
+    return this.options.defaultNs
+  }
 
   async scan(): Promise<ScanResult> {
     const files = await this.platform.findFiles(this.options.includePatterns, this.options.excludePatterns)
@@ -52,7 +62,7 @@ export class UsageScanner {
       )
     }
 
-    return { perFile, usedKeyDirectives }
+    return { perFile, scannedFiles: files.length, usedKeyDirectives }
   }
 
   async scanFile(filePath: string): Promise<{ keypaths: KeypathInfo[]; directives: UsedKeyDirective[] }> {

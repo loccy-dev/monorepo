@@ -185,7 +185,7 @@ suite('react-i18next project', function () {
         // prettier-ignore
         [
           { loc: { start: 307, end: 358 }, content: "'very.long.key.that.continues.for.testing.purposes'", keypaths: ['very.long.key.that.continues.for.testing.purposes'] },
-          { loc: { start: 421, end: 446 }, content: "'ns1:first.namespace.key'", keypaths: ['first.namespace.key'], ns: 'ns1' },
+          { loc: { start: 421, end: 446 }, content: "'ns1:first.namespace.key'", keypaths: ['first.namespace.key'], ns: 'ns1', nsInKeypath: true },
           { loc: { start: 469, end: 491 }, content: "'second.namespace.key'", keypaths: ['second.namespace.key'], ns: 'ns2' },
           { loc: { start: 544, end: 557 }, content: "'multi.title'", keypaths: ['multi.title'] },
           { loc: { start: 577, end: 593 }, content: "'multi.subtitle'", keypaths: ['multi.subtitle'], ns: 'ns2' },

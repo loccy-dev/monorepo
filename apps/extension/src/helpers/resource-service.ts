@@ -5,6 +5,7 @@ import type { Locale, Namespace, LocalizedText, Localized } from '@repo/types/pr
 import { handleError } from './error-handler'
 import { fileResolver } from './file-resolver'
 import { ResourceManager, type KeypathSuggestion } from '@repo/shared/core/resources/resource-manager'
+import { rewriteLinkedRefsInContents } from '@repo/shared/core/resources/linked-refs'
 import {
   getFramework,
   getFrameworkOrCustom,
@@ -668,32 +669,6 @@ export class ResourceService {
     return root ? vscode.Uri.joinPath(root, relativePath) : vscode.Uri.file(relativePath)
   }
 
-  /** Rewrite linked-message references (`@:old` → `@:new`) inside a serialized resource file. */
-  private rewriteLinkedRefs(
-    content: string,
-    oldKeypath: string,
-    newKeypath: string,
-    framework: string,
-    targetNs?: string,
-  ): string {
-    const utils = getFramework(framework)?.ideInsert?.linkedMessageUtils
-    if (!utils) {
-      return content
-    }
-    const search = utils.build(oldKeypath, targetNs)
-    if (!content.includes(search)) {
-      return content
-    }
-    const regex = new RegExp(utils.regex.source, utils.regex.flags)
-    return content.replace(regex, (match, ref) => {
-      const { keypath: refKeypath, ns: refNs } = utils.parse(ref)
-      if (refKeypath === oldKeypath && refNs === targetNs) {
-        return match.replace(oldKeypath, newKeypath)
-      }
-      return match
-    })
-  }
-
   /** Stage a full-file write (replace when the file exists, else create) into a workspace edit. */
   private async stageFileWrite(
     workspaceEdit: vscode.WorkspaceEdit,
@@ -783,24 +758,21 @@ export class ResourceService {
 
   /** Rewrite linked-message refs across a module's files in the live manager (after a key rename). */
   private rewriteLinkedRefsInPlace(view: ModuleView, oldKeypath: string, newKeypath: string, ns: Namespace) {
-    if (!getFramework(view.module.framework)?.ideInsert?.linkedMessageUtils) {
+    const contents = view.manager.getAllFileContents()
+    const changed = rewriteLinkedRefsInContents(
+      contents,
+      view.manager.getFileLocaleMap(),
+      view.module.framework,
+      oldKeypath,
+      newKeypath,
+      ns,
+    )
+    if (!changed.size) {
       return
     }
-    const contents = view.manager.getAllFileContents()
-    const localeMap = view.manager.getFileLocaleMap()
-    let changed = false
-    const rewritten = [...contents].map(([relativePath, content]) => {
-      const fileNs = localeMap.get(relativePath)?.namespace
-      const targetNs = fileNs === ns ? undefined : ns
-      const next = this.rewriteLinkedRefs(content, oldKeypath, newKeypath, view.module.framework, targetNs)
-      if (next !== content) {
-        changed = true
-      }
-      return { relativePath, content: next }
-    })
-    if (changed) {
-      view.manager.reloadFiles(rewritten)
-    }
+    view.manager.reloadFiles(
+      [...contents].map(([relativePath, content]) => ({ relativePath, content: changed.get(relativePath) ?? content })),
+    )
   }
 
   /** Build atomic rename edits (key rename + linked-ref rewrite) for the owning module's files. */
@@ -819,19 +791,23 @@ export class ResourceService {
 
     // non-mutating: rename via throwaway manager off LIVE content (not disk) — honors unsaved state
     const currentContents = view.manager.getAllFileContents()
-    const localeMap = view.manager.getFileLocaleMap()
     const temp = new ResourceManager(
       this.managerConfig(view.module, view.defaultNs),
       [...currentContents].map(([relativePath, content]) => ({ relativePath, content })),
     )
     temp.renameKeypath(oldKeypath, newKeypath, ns)
     const post = temp.getAllFileContents()
+    const linked = rewriteLinkedRefsInContents(
+      post,
+      view.manager.getFileLocaleMap(),
+      view.module.framework,
+      oldKeypath,
+      newKeypath,
+      ns,
+    )
 
     for (const [relativePath, original] of currentContents) {
-      let content = post.get(relativePath) ?? original
-      const fileNs = localeMap.get(relativePath)?.namespace
-      const targetNs = fileNs === ns ? undefined : ns
-      content = this.rewriteLinkedRefs(content, oldKeypath, newKeypath, view.module.framework, targetNs)
+      const content = linked.get(relativePath) ?? post.get(relativePath) ?? original
       if (content !== original) {
         const uri = this.relToUri(relativePath)
         const document = await vscode.workspace.openTextDocument(uri)

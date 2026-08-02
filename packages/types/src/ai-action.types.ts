@@ -1,6 +1,6 @@
 // Wire contract for the web AI endpoint (`/api/vscode/v1/ai`).
 // The client sends the raw `styleguide` config as-is; the web action decides what's relevant
-// (prose scoping, override visibility, code styleguide) — see `resolveLocalizationGuidance`.
+// (prose scoping, override visibility, key-naming rules) — see `resolveLocalizationGuidance`.
 
 import type { LocalizedText, Locale } from './primitives.types'
 import type { StyleguideConfig, MessageFormatId } from './config.types'

@@ -6,6 +6,8 @@ export interface KeypathInfo {
   loc: Loc
   content: string
   ns: string
+  /** The key literal spells the namespace itself (`t('auth:login')`), so a rewrite has to keep it. */
+  nsInKeypath?: boolean
   prefix?: string
   keypaths: string[]
   type: 'static' | 'dynamic-defined' | 'dynamic-undefined' | 'plurals'

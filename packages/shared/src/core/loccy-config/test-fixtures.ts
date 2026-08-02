@@ -15,6 +15,9 @@ export function makePlatform(files: Record<string, string>): Platform {
     async writeFile() {
       throw new Error('not needed')
     },
+    async deleteFile() {
+      throw new Error('not needed')
+    },
     async exists(path: string) {
       return path in files
     },

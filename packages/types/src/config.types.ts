@@ -148,28 +148,54 @@ export interface PartialOverride {
   style?: string
 }
 
-/** Partial-override entries derived from `locales` — those whose value is `{extends, style?}`, not plain prose. */
-export function partialOverridesOf(locales: Record<string, LocaleValue> | undefined): PartialOverride[] {
+/** Partial-override entries derived from `localeRules` — those whose value is `{extends, style?}`, not plain prose. */
+export function partialOverridesOf(localeRules: Record<string, LocaleValue> | undefined): PartialOverride[] {
   const out: PartialOverride[] = []
-  for (const [locale, value] of Object.entries(locales ?? {})) {
+  for (const [locale, value] of Object.entries(localeRules ?? {})) {
     if (typeof value === 'string') continue
     out.push({ locale, extends: value.extends, style: value.style })
   }
   return out
 }
 
-/** Prose + structured guidance for AI translation. */
+/**
+ * Hand-authored guidance for writing and translating this project's copy.
+ */
 export interface StyleguideConfig {
-  /** Code-side i18n guidance: key naming, file organization, coding conventions (markdown). */
-  code?: string
-  /** Style guidance applied to every locale (markdown). */
-  global?: string
-  /** Per-locale styleguide, keyed by locale code — plain prose, or a partial-override entry. */
-  locales?: Record<string, LocaleValue>
-  /** Terms preserved verbatim in every locale (brand/product names). */
+  /** What the product is and who uses it.
+   *  e.g. "Staff app for a cat café, used one-handed on a phone mid-shift." */
+  product?: string
+
+  /** How the product speaks, personality, how the user is addressed.
+   *  e.g. "Warm and lightly cheeky; address the user informally; no marketing filler." */
+  voice?: string
+
+  /** Constraints no locale may override: length, markup, casing of code, emoji.
+   *  e.g. "Buttons and menu labels max ~25 characters. No emoji." */
+  mechanics?: string
+
+  /** Per-locale rules, keyed by locale code: what that language decides.
+   *  e.g. "de: avoid anglicisms; German runs long, compress rather than truncate." */
+  localeRules?: Record<string, LocaleValue>
+
+  /** Terms preserved verbatim in every locale, such as brand and product names.
+   *  e.g. "Whisker Café — never translated, casing preserved." */
   doNotTranslate?: DoNotTranslateEntry[]
-  /** Terms with approved per-locale translations (consistency). */
+
+  /** Terms with approved per-locale translations.
+   *  e.g. "a booked seating slot, not the act of reserving → Reservation (en), Reservierung (de)." */
   glossary?: GlossaryEntry[]
+
+  /** How translation keys are named and organized.
+   *  e.g. "Group by feature, dot-separated: checkout.button.submit" */
+  keys?: string
+
+  /** @deprecated Renamed to `keys`. */
+  code?: string
+  /** @deprecated Split into `product`, `voice` and `mechanics`, by what each rule is about. */
+  global?: string
+  /** @deprecated Renamed to `localeRules`. */
+  locales?: Record<string, LocaleValue>
 }
 
 // --- Resolved config (canonical, what `readConfigFile` returns) ---
@@ -194,6 +220,8 @@ export interface ResolvedModule {
 export interface LoccyConfig {
   modules: Record<string, ResolvedModule>
   styleguide?: StyleguideConfig
+  /** deprecated fields silently dropped, but reported here */
+  deprecatedStyleguideFields?: string[]
 }
 
 // --- Raw file shape (what a user actually authors in loccy.yaml) ---

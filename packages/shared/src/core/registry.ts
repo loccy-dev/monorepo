@@ -52,6 +52,13 @@ export function listFrameworks(): I18nFramework[] {
   return [...frameworks.values()]
 }
 
+/** Framework ids a project may actually declare — every registered one minus the withheld ones. */
+export function activeFrameworkIds(): I18nFrameworkId[] {
+  return listFrameworks()
+    .map((framework) => framework.id)
+    .filter((id) => !DISABLED_FRAMEWORK_IDS.has(id))
+}
+
 /** First registered, non-disabled framework whose `detectFromDeps` matches — registration order is priority order. */
 export function detectFrameworkFromDeps(allDeps: Set<string>): I18nFrameworkId | undefined {
   for (const framework of frameworks.values()) {
@@ -89,7 +96,6 @@ export function resolveActiveMessageFormat(module: ResolvedModule): MessageForma
   return getMessageFormat(module.translations.messageFormat) ?? icuMessageFormat
 }
 
-/** A module's matched translation files, resolved framework, and resolved default namespace. */
 /** A module's default namespace: explicit `usages.defaultNamespace`, else framework detection over
  *  its files (detection failure → the no-namespace sentinel). The single rule CLI + IDE both use. */
 export async function resolveModuleDefaultNs(
@@ -107,6 +113,7 @@ export async function resolveModuleDefaultNs(
   }
 }
 
+/** A module's matched translation files, plus the default namespace they resolve to. */
 export async function resolveModuleTranslations(
   platform: Platform,
   module: ResolvedModule,

@@ -1,4 +1,4 @@
-// Generates schemas/config.schema.json from PartialLoccyConfig (src/cfg.types.ts) — the TS
+// Generates schemas/config.schema.json from PartialLoccyConfig (src/config.types.ts) — the TS
 // interfaces are the source of truth, this script keeps the JSON Schema in sync at build time.
 import { createGenerator } from 'ts-json-schema-generator'
 import { promises as fs } from 'node:fs'
@@ -11,9 +11,24 @@ const packageRoot = path.resolve(__dirname, '..')
 const srcDir = path.join(packageRoot, 'src')
 const outFile = path.join(packageRoot, 'schemas', 'config.schema.json')
 
+// `@deprecated <reason>` comes out as the reason string; JSON Schema wants `deprecated: true`, with
+// the reason where an editor will actually show it (`deprecationMessage` is what the VS Code JSON/YAML
+// language service puts on the squiggle; `deprecated` alone only yields a generic "Value is deprecated").
+function normalizeDeprecated(node) {
+  if (!node || typeof node !== 'object') return
+  if (typeof node.deprecated === 'string') {
+    const reason = node.deprecated
+    node.description = node.description ? `${reason} ${node.description}` : reason
+    node.deprecated = true
+    node.deprecationMessage = reason
+    node.doNotSuggest = true
+  }
+  for (const value of Object.values(node)) normalizeDeprecated(value)
+}
+
 async function generate() {
   const schema = createGenerator({
-    path: path.join(srcDir, 'cfg.types.ts'),
+    path: path.join(srcDir, 'config.types.ts'),
     tsconfig: path.join(packageRoot, 'tsconfig.json'),
     type: 'PartialLoccyConfig',
     expose: 'export',
@@ -41,6 +56,9 @@ async function generate() {
     ...rest,
     $defs: definitions,
   }
+
+  // Whole schema: a type that isn't exported is inlined at its use site rather than given a $def.
+  normalizeDeprecated(ordered)
 
   const prettierConfig = (await prettier.resolveConfig(outFile)) ?? {}
   const formatted = await prettier.format(JSON.stringify(ordered, null, 2), { ...prettierConfig, filepath: outFile })

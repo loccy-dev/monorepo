@@ -17,6 +17,10 @@ export function createNodePlatform(rootPath: string): Platform {
       await fs.writeFile(fullPath, content, 'utf-8')
     },
 
+    async deleteFile(relativePath: string): Promise<void> {
+      await fs.rm(path.join(rootPath, relativePath), { force: true })
+    },
+
     async exists(relativePath: string): Promise<boolean> {
       try {
         await fs.access(path.join(rootPath, relativePath))

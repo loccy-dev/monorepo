@@ -5,6 +5,16 @@
   "tags": [
     "-lintignore"
   ],
+  // TEMP: claude-plugin is the only consumer of these exports
+  "ignoreIssues": {
+    "packages/shared/src/core/config.ts": ["exports"],
+    "packages/shared/src/core/helpers/namespace.helpers.ts": ["exports"],
+    "packages/shared/src/core/loccy-config/regional-override-guards.ts": ["exports", "types"],
+    "packages/shared/src/core/resources/linked-refs.ts": ["exports"],
+    "packages/shared/src/core/usages/find-usages.ts": ["exports", "types"],
+    "packages/shared/src/utils/styleguide/check-compliance.ts": ["exports", "types"],
+    "packages/shared/src/utils/styleguide/localization-guidance.ts": ["exports", "types"]
+  },
   "ignore": [
     "apps/web/**",
     "apps/extension/src/lucide-icons.ts", // auto-generated, all icons kept for lookup

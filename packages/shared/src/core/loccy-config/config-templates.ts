@@ -2,10 +2,11 @@
 
 import { dump } from 'js-yaml'
 import type { LayoutPattern, LoccyConfig } from '@repo/types/config.types'
-import { LOCCY_DOCS, LOCCY_HOME, LOCCY_SCHEMA_URL } from '../config'
+import { LOCCY_HOME, LOCCY_SCHEMA_URL } from '../config'
 import { extractFileExt } from '../helpers/path.helpers'
 import { frameworkDefaultLayout } from './layout-defaults'
 import { getFramework } from '../registry'
+import { STYLEGUIDE_EXAMPLE_YAML } from './styleguide-example'
 
 const CONFIG_YAML_HEADER = `# yaml-language-server: $schema=${LOCCY_SCHEMA_URL}
 
@@ -60,53 +61,17 @@ function renderModule(module: LoccyConfig['modules'][string]): string {
   const detectKeysInStringsLine = usages.detectKeysInStrings === false ? `\n      detectKeysInStrings: false` : ''
 
   return `    framework: ${framework}
-
     translations:
       glob: ${q(translations.glob)}${messageFormatLine}${layoutLine}${sortKeysLine}${translationsExcludeLine}
-
     usages:
       include:${block(usages.include, '        ')}${usagesExcludeLine}${customTFunctionsLine}${detectKeysInStringsLine}`
 }
 
-const STYLEGUIDE_EXAMPLE = `styleguide:
-  # TODO: uncomment and adapt:
-  # code: |
-  #   Group keys by feature, dot-separated ("checkout.button.submit").
-  #   Put shared copy under "common." and reuse it — never duplicate a string.
-  # global: |
-  #   Whisker Café — staff app for a real cat café. Voice: warm, lightly cheeky, cat-first.
-  #   Keep the brand "Whisker Café" (with é, U+00E9 — never plain "e") and the mascot
-  #   "Mister Mittens" verbatim in every locale.
-  #   Never alter placeholders like {name} or {count}, and keep HTML tags (<b>…</b>) intact
-  #   and correctly nested.
-  #   Buttons and menu labels stay short — max ~25 characters where possible; the layout
-  #   has no room for prose.
-  #   No emoji, no marketing filler, no fake urgency. Exclamation marks only for genuine surprise.
-  # locales:
-  #   en: |
-  #     US English. Sentence case for headings and buttons ("New reservation"). Contractions are fine.
-  #   de: |
-  #     Always informal du/dein, never Sie. Avoid anglicisms when a natural
-  #     German word exists. German runs long — compress rather than truncate.
-  #   de-CH:
-  #     extends: de
-  #     style: |
-  #       Replace ß with ss (schliessen). Use Swiss guillemets «…».
-  #       Thousands separator is an apostrophe (1'234.50). Currency as CHF or Fr.
-  # doNotTranslate:
-  #   - term: Whisker Café
-  #     caseSensitive: true
-  #     definition: é is U+00E9 — never plain "e"
-  #   - term: Mister Mittens
-  # glossary:
-  #   - definition: A booked seating slot (the booking itself, not the act of reserving)
-  #     terms:
-  #       en: Reservation
-  #       de: Reservierung
-  #       de-CH:
-  #         preferred: Reservation
-  #         deprecated: [Buchung]
-`
+/** The example ships commented out: a scaffold to uncomment and adapt, never active rules. */
+const STYLEGUIDE_SCAFFOLD = `${STYLEGUIDE_EXAMPLE_YAML.trimEnd()
+  .split('\n')
+  .map((line) => (line ? `# ${line}` : '#'))
+  .join('\n')}\n`
 
 /** Non-empty check — an all-`undefined` `StyleguideConfig` (e.g. no locales set) still counts as "nothing real to write". */
 function hasRealStyleguide(styleguide: LoccyConfig['styleguide']): boolean {
@@ -120,13 +85,12 @@ export function renderLoccyConfigYaml(config: LoccyConfig): string {
 
   const styleguideYaml = hasRealStyleguide(config.styleguide)
     ? dump({ styleguide: config.styleguide }, { indent: 2, lineWidth: -1, noRefs: true, sortKeys: false })
-    : STYLEGUIDE_EXAMPLE
+    : STYLEGUIDE_SCAFFOLD
 
   return `${CONFIG_YAML_HEADER}
 
 modules:
 ${modulesYaml}
 
-# Styleguide makes AI translations consistent - ${LOCCY_DOCS}/config/#styleguide
 ${styleguideYaml}`
 }

@@ -39,7 +39,7 @@
     "format": "prettier --write --list-different \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit && prettier --check \"**/*.ts\"",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "flt": "npm run format && npm run lint && npm run test",
     "prepublishOnly": "npm run build"
   },

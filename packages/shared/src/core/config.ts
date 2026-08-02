@@ -2,6 +2,7 @@
  * IDE) links the same place and never drifts. */
 export const LOCCY_HOME = 'https://loccy.dev'
 export const LOCCY_DOCS = `${LOCCY_HOME}/docs`
+export const LOCCY_LLMS_TXT = `${LOCCY_HOME}/llms.txt`
 export const LOCCY_SCHEMA_URL = `${LOCCY_HOME}/schemas/config.schema.json`
 
 // https://ai.google.dev/gemini-api/docs/models#supported-languages

@@ -2,11 +2,9 @@ import chalk from 'chalk'
 import { loccyConfigFilename, type ResolvedModule } from '@repo/types/config.types'
 import type { Platform } from '@repo/types/platform.types'
 import { s } from '@repo/shared/core/helpers/helpers'
-import { detectSortKeysFromDocument } from '@repo/shared/core/loccy-config/defaults-detection/detect-sort-keys'
-import { parseResourceFile } from '@repo/shared/core/registry'
 import { createNodePlatform } from '@repo/node-platform/index'
-import { loadConfigOrExit } from './load-config'
-import { readModuleFiles, writeModuleFile } from './module-files'
+import { sortModuleFiles } from '@repo/shared/core/resources/module-files'
+import { loadConfigOrExit, selectModuleOrExit } from './load-config'
 
 interface SortResult {
   sorted: number
@@ -14,43 +12,41 @@ interface SortResult {
   failed: number
 }
 
-/** Deeply sort keys in a module's translation files. In check mode, report unsorted files without writing. */
-export async function sortModuleFiles(platform: Platform, module: ResolvedModule, check: boolean): Promise<SortResult> {
-  let sorted = 0
-  let needsSort = 0
-  const { files, readFailures } = await readModuleFiles(platform, module)
-  let failed = readFailures
+/** Sort a module's translation files, reporting each outcome as it goes. */
+async function sortAndReport(platform: Platform, module: ResolvedModule, check: boolean): Promise<SortResult> {
+  const { files, readFailures } = await sortModuleFiles(platform, module, check)
+  for (const failure of readFailures) {
+    console.log(chalk.red(`  failed to read ${failure.filePath}: ${failure.error}`))
+  }
 
-  for (const { filePath, format, content } of files) {
-    try {
-      if (detectSortKeysFromDocument(parseResourceFile(format, content))) continue // already sorted
-    } catch {
-      continue // skip unparseable
-    }
-
-    if (check) {
-      needsSort++
-      console.log(chalk.yellow(`  ${chalk.bold('needs sort')} ${filePath}`))
-      continue
-    }
-
-    const sortedDoc = parseResourceFile(format, content, true)
-    if (await writeModuleFile(platform, filePath, sortedDoc.content, 'sort')) {
-      sorted++
-      console.log(chalk.green(`  ${chalk.bold('sorted')} ${filePath}`))
-    } else {
-      failed++
+  const result: SortResult = { sorted: 0, needsSort: 0, failed: readFailures.length }
+  for (const file of files) {
+    switch (file.outcome) {
+      case 'sorted':
+        result.sorted++
+        console.log(chalk.green(`  ${chalk.bold('sorted')} ${file.filePath}`))
+        break
+      case 'needs-sort':
+        result.needsSort++
+        console.log(chalk.yellow(`  ${chalk.bold('needs sort')} ${file.filePath}`))
+        break
+      case 'failed':
+        result.failed++
+        console.log(chalk.red(`  failed to sort ${file.filePath}: ${file.error}`))
+        break
+      case 'skipped':
+        break
     }
   }
 
-  return { sorted, needsSort, failed }
+  return result
 }
 
-export async function formatCommand(options: { config?: string; check?: boolean }): Promise<void> {
+export async function formatCommand(options: { config?: string; check?: boolean; module?: string }): Promise<void> {
   const check = options.check ?? false
   const configPath = options.config ?? loccyConfigFilename
   const platform = createNodePlatform(process.cwd())
-  const config = await loadConfigOrExit(platform, configPath)
+  const config = selectModuleOrExit(await loadConfigOrExit(platform, configPath), options.module)
 
   const modules = Object.values(config.modules)
   const sortable = modules.filter((m) => m.translations.sortKeys)
@@ -69,7 +65,7 @@ export async function formatCommand(options: { config?: string; check?: boolean 
       console.log('')
       console.log(chalk.bold.underline(`Module: ${module.name}`))
     }
-    const result = await sortModuleFiles(platform, module, check)
+    const result = await sortAndReport(platform, module, check)
     totalSorted += result.sorted
     totalNeedsSort += result.needsSort
     totalFailed += result.failed

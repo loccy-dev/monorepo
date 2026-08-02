@@ -92,6 +92,14 @@ function createPlatform(root: vscode.Uri): Platform {
       await vscode.workspace.fs.writeFile(toUri(relativePath), new TextEncoder().encode(content))
     },
 
+    async deleteFile(relativePath) {
+      try {
+        await vscode.workspace.fs.delete(toUri(relativePath))
+      } catch {
+        // already gone, which is the outcome the caller asked for
+      }
+    },
+
     async exists(relativePath) {
       try {
         await vscode.workspace.fs.stat(toUri(relativePath))

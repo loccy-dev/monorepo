@@ -91,6 +91,7 @@ export async function handleMatches(options: HandleMatchesOptions): Promise<Keyp
     const count = parsedExpression.count
     const ordinal = parsedExpression.ordinal
     let usedNs = parsedExpression.ns ?? tFuncInfo?.ns
+    let nsInKeypath = false
 
     // i18next dynamic context (`{ context: someVar }`): resolve the variable to its possible string
     // values so `_suffix` keys can be fanned out (static context is applied inline below).
@@ -127,6 +128,7 @@ export async function handleMatches(options: HandleMatchesOptions): Promise<Keyp
         const parts = keypath.split(':')
         usedNs = parts.shift()
         baseKey = parts.join(':')
+        nsInKeypath = true
       }
 
       // apply context suffix (static → single key; dynamic → fan out over resolved values)
@@ -160,6 +162,8 @@ export async function handleMatches(options: HandleMatchesOptions): Promise<Keyp
       loc: annotationLoc,
       content: keypathExpression.content,
       ns: usedNs ?? defaultNs ?? '',
+      // Only when the literal actually spelled it, so the field stays absent in the common case.
+      ...(nsInKeypath ? { nsInKeypath: true } : {}),
       prefix: tFuncInfo?.prefix,
       keypaths,
       type,

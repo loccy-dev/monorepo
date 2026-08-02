@@ -5,30 +5,30 @@ import { cfg } from '../global-config'
 
 /** AI instructions carried over from a legacy `loccy.config.json`, mapped onto the styleguide. */
 export interface MigratedStyleguide {
-  global?: string | null
-  locales?: Record<string, string> | null
-  code?: string | null
+  voice?: string | null
+  localeRules?: Record<string, string> | null
+  keys?: string | null
 }
 
 /** Build the styleguide section from migrated AI instructions plus the current partial-override
  * locales, or undefined when there's nothing real to write. */
 function toStyleguide(
   migrated: MigratedStyleguide | undefined,
-  currentLocales: Record<string, LocaleValue> | undefined,
+  currentLocaleRules: Record<string, LocaleValue> | undefined,
 ): StyleguideConfig | undefined {
-  const global = migrated?.global?.trim() || undefined
-  const code = migrated?.code?.trim() || undefined
+  const voice = migrated?.voice?.trim() || undefined
+  const keys = migrated?.keys?.trim() || undefined
 
-  const locales: Record<string, LocaleValue> = { ...migrated?.locales }
-  for (const { locale, extends: extendsLocale, style } of partialOverridesOf(currentLocales)) {
-    locales[locale] = { extends: extendsLocale, style }
+  const localeRules: Record<string, LocaleValue> = { ...migrated?.localeRules }
+  for (const { locale, extends: extendsLocale, style } of partialOverridesOf(currentLocaleRules)) {
+    localeRules[locale] = { extends: extendsLocale, style }
   }
-  const hasLocales = Object.keys(locales).length > 0
+  const hasLocaleRules = Object.keys(localeRules).length > 0
 
-  if (!global && !hasLocales && !code) {
+  if (!voice && !hasLocaleRules && !keys) {
     return undefined
   }
-  return { code, global, locales: hasLocales ? locales : undefined }
+  return { voice, localeRules: hasLocaleRules ? localeRules : undefined, keys }
 }
 
 /**
@@ -44,6 +44,6 @@ export function generateLoccyConfigYaml(
 ): string {
   return renderLoccyConfigYaml({
     modules,
-    styleguide: toStyleguide(migrated, cfg.styleguide?.locales),
+    styleguide: toStyleguide(migrated, cfg.styleguide?.localeRules),
   })
 }

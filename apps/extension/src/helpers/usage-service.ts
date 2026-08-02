@@ -9,6 +9,8 @@ import { resourceService } from './resource-service'
 import { getKeyRanges } from '../editor-integration/frameworks/get-key-ranges'
 import type { KeypathInfo } from '@repo/types/framework.types'
 import { NS_WITHOUT_NS } from '@repo/shared/core/helpers/namespace.helpers'
+import { renameUsageEdits } from '@repo/shared/core/usages/rename-usage'
+import { usageMatchesNamespace } from '@repo/shared/core/usages/find-usages'
 import { KEYS_PARSE_ON_EDIT_DEBOUNCE_DELAY } from '../config'
 
 class UsageService {
@@ -44,9 +46,7 @@ class UsageService {
           continue
         }
 
-        const withoutNamespace = !keypathInfo.ns && !namespace
-        const sameNamespace = keypathInfo.ns === (namespace ?? fileDefaultNs)
-        if (!withoutNamespace && !sameNamespace) {
+        if (!usageMatchesNamespace(keypathInfo, namespace ?? fileDefaultNs, fileDefaultNs)) {
           continue
         }
 
@@ -104,24 +104,12 @@ class UsageService {
       const uri = vscode.Uri.parse(stringifiedUri)
       const document = await vscode.workspace.openTextDocument(uri)
 
-      // sort by position desc — avoids offset shift when applying edits
-      const sortedKeyInfos = [...keyInfos].sort((a, b) => b.loc.start - a.loc.start)
+      // Skip dynamic keys as they can't be reliably renamed
+      const renamable = keyInfos.filter((keyInfo) => !keyInfo.type.startsWith('dynamic'))
 
-      for (const keyInfo of sortedKeyInfos) {
-        // Skip dynamic keys as they can't be reliably renamed
-        if (keyInfo.type.startsWith('dynamic')) {
-          continue
-        }
-
-        // loc spans include the surrounding quotes; ±1 skips them
-        const startPos = document.positionAt(keyInfo.loc.start + 1)
-        const endPos = document.positionAt(keyInfo.loc.end - 1)
-        const range = new vscode.Range(startPos, endPos)
-
-        const newKeyWithoutPrefix =
-          keyInfo.prefix && newKey.startsWith(`${keyInfo.prefix}.`) ? newKey.slice(keyInfo.prefix.length + 1) : newKey
-
-        workspaceEdit.replace(uri, range, newKeyWithoutPrefix)
+      for (const edit of renameUsageEdits(renamable, newKey)) {
+        const range = new vscode.Range(document.positionAt(edit.start), document.positionAt(edit.end))
+        workspaceEdit.replace(uri, range, edit.text)
       }
 
       // internal state updates after the edit applies, via the undo/redo handler

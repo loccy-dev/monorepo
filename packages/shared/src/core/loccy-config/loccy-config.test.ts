@@ -113,19 +113,19 @@ describe('resolveConfig', () => {
     expect(overridden.usages.noUnusedKeys).toBe(false)
   })
 
-  it('sets styleguide.locales overrides only when provided', () => {
-    expect(resolveConfig({}, detected).styleguide?.locales).toBeUndefined()
-    expect(resolveConfig({ styleguide: { locales: {} } }, detected).styleguide?.locales).toEqual({})
+  it('sets styleguide.localeRules overrides only when provided', () => {
+    expect(resolveConfig({}, detected).styleguide?.localeRules).toBeUndefined()
+    expect(resolveConfig({ styleguide: { localeRules: {} } }, detected).styleguide?.localeRules).toEqual({})
     expect(
-      resolveConfig({ styleguide: { locales: { 'de-CH': { extends: 'de' } } } }, detected).styleguide?.locales,
+      resolveConfig({ styleguide: { localeRules: { 'de-CH': { extends: 'de' } } } }, detected).styleguide?.localeRules,
     ).toEqual({ 'de-CH': { extends: 'de' } })
   })
 
-  it('throws when a locales override entry is missing `extends` or self-referential', () => {
-    expect(() => resolveConfig({ styleguide: { locales: { 'de-CH': { extends: '' } } as never } }, detected)).toThrow(
-      LoccyConfigError,
-    )
-    expect(() => resolveConfig({ styleguide: { locales: { de: { extends: 'de' } } } }, detected)).toThrow(
+  it('throws when a localeRules override entry is missing `extends` or self-referential', () => {
+    expect(() =>
+      resolveConfig({ styleguide: { localeRules: { 'de-CH': { extends: '' } } as never } }, detected),
+    ).toThrow(LoccyConfigError)
+    expect(() => resolveConfig({ styleguide: { localeRules: { de: { extends: 'de' } } } }, detected)).toThrow(
       LoccyConfigError,
     )
   })
@@ -134,9 +134,9 @@ describe('resolveConfig', () => {
     const config = resolveConfig(
       {
         styleguide: {
-          global: 'Warm, plain language.',
-          locales: { 'de-CH': { extends: 'de', style: 'ß → ss' } },
-          code: 'Group by feature.',
+          voice: 'Warm, plain language.',
+          localeRules: { 'de-CH': { extends: 'de', style: 'ß → ss' } },
+          keys: 'Group by feature.',
           glossary: [{ definition: 'The entity', terms: { en: 'Reservation', de: 'Reservierung' } }],
           doNotTranslate: [{ term: 'Whisker Café', caseSensitive: true }],
         },
@@ -144,12 +144,20 @@ describe('resolveConfig', () => {
       detected,
     )
     expect(config.styleguide).toEqual({
-      global: 'Warm, plain language.',
-      locales: { 'de-CH': { extends: 'de', style: 'ß → ss' } },
-      code: 'Group by feature.',
+      voice: 'Warm, plain language.',
+      localeRules: { 'de-CH': { extends: 'de', style: 'ß → ss' } },
+      keys: 'Group by feature.',
       glossary: [{ definition: 'The entity', terms: { en: 'Reservation', de: 'Reservierung' } }],
       doNotTranslate: [{ term: 'Whisker Café', caseSensitive: true }],
     })
+  })
+
+  it('drops pre-rename styleguide fields instead of failing', () => {
+    const config = resolveConfig(
+      { styleguide: { global: 'Warm.', code: 'By feature.', locales: { de: 'Du' }, voice: 'Plain.' } },
+      detected,
+    )
+    expect(config.styleguide).toEqual({ voice: 'Plain.' })
   })
 
   it('leaves styleguide absent when not provided', () => {
@@ -188,13 +196,13 @@ modules:
     usages:
       include: ["src/**/*.vue"]
 styleguide:
-  locales:
+  localeRules:
     de-CH:
       extends: de
 `,
     })
     const config = await readConfigFile(platform)
-    expect(config?.styleguide?.locales).toEqual({ 'de-CH': { extends: 'de' } })
+    expect(config?.styleguide?.localeRules).toEqual({ 'de-CH': { extends: 'de' } })
     expect(config?.modules.default).toEqual({
       name: 'default',
       framework: 'vue-i18n',
@@ -229,8 +237,8 @@ modules:
     translations:
       glob: src/locales/*.json
 styleguide:
-  global: Warm, plain language.
-  locales:
+  voice: Warm, plain language.
+  localeRules:
     de: Always informal du.
   glossary:
     - definition: The entity, not the verb
@@ -243,8 +251,8 @@ styleguide:
 `,
     })
     const config = await readConfigFile(platform)
-    expect(config?.styleguide?.global).toBe('Warm, plain language.')
-    expect(config?.styleguide?.locales).toEqual({ de: 'Always informal du.' })
+    expect(config?.styleguide?.voice).toBe('Warm, plain language.')
+    expect(config?.styleguide?.localeRules).toEqual({ de: 'Always informal du.' })
     expect(config?.styleguide?.glossary).toEqual([
       { definition: 'The entity, not the verb', terms: { en: 'Reservation', de: 'Reservierung' } },
     ])

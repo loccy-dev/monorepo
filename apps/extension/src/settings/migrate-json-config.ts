@@ -111,16 +111,16 @@ const writeFile = (uri: vscode.Uri, content: string) =>
 /**
  * Convert `loccy.config.json` → `loccy.yaml`, then delete the json.
  * Legacy structural fields carry over as an explicit module override (detection fills any gaps);
- * legacy AI instructions carry over as the styleguide (`global` / `locales` / `keypaths`).
+ * legacy AI instructions carry over as the styleguide (`voice` / `localeRules` / `keys`).
  */
 export async function migrateJsonConfig(jsonUri: vscode.Uri): Promise<{ migratedAiInstructions: boolean }> {
   const legacy = await parseLegacyJson(jsonUri)
   const dir = vscode.Uri.joinPath(jsonUri, '..')
 
-  const global = legacy.ai?.translations?.customInstructions
-  const locales = legacy.ai?.translations?.customInstructionsPerLocale
-  const keypaths = legacy.ai?.keypaths?.customInstructions?.trim()
-  const migratedAiInstructions = Boolean(global?.trim() || Object.keys(locales ?? {}).length || keypaths)
+  const voice = legacy.ai?.translations?.customInstructions
+  const localeRules = legacy.ai?.translations?.customInstructionsPerLocale
+  const keys = legacy.ai?.keypaths?.customInstructions?.trim()
+  const migratedAiInstructions = Boolean(voice?.trim() || Object.keys(localeRules ?? {}).length || keys)
 
   const { modules } = resolveConfig(
     { modules: { [DEFAULT_MODULE]: legacyToPartialModule(legacy) } },
@@ -129,7 +129,7 @@ export async function migrateJsonConfig(jsonUri: vscode.Uri): Promise<{ migrated
 
   await writeFile(
     vscode.Uri.joinPath(dir, loccyConfigFilename),
-    generateLoccyConfigYaml({ global, locales, code: keypaths }, modules),
+    generateLoccyConfigYaml({ voice, localeRules, keys }, modules),
   )
 
   await vscode.workspace.fs.delete(jsonUri)

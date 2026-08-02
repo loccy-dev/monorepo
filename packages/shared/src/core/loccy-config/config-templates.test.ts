@@ -26,8 +26,8 @@ describe('renderLoccyConfigYaml', () => {
     // messageFormat `icu` is NOT the default (`suffix-cldr`) → must be spelled out, or the reader
     // re-derives `suffix-cldr` and silently flips plural semantics.
     expect(module.translations).toEqual({ glob: 'public/locales/**/*.json', messageFormat: 'icu' })
-    // styleguide key is real, but every field is a commented example — parses to null
-    expect(parsed.styleguide).toBeNull()
+    // the styleguide scaffold is commented out whole, so nothing of it parses
+    expect(parsed.styleguide).toBeUndefined()
   })
 
   it('omits a framework-default messageFormat', () => {
@@ -53,10 +53,10 @@ describe('renderLoccyConfigYaml', () => {
     expect(yaml).toContain('# yaml-language-server: $schema=https://loccy.dev/schemas/config.schema.json')
   })
 
-  it('emits a real styleguide key with commented field examples', () => {
+  it('emits the styleguide scaffold fully commented out', () => {
     const yaml = renderLoccyConfigYaml(placeholderConfig)
-    expect(yaml).toContain('\nstyleguide:\n')
-    expect(yaml).toContain('  # glossary:')
-    expect(yaml).toContain('  # doNotTranslate:')
+    expect(yaml).toContain('\n# styleguide:\n')
+    expect(yaml).toContain('#   glossary:')
+    expect(yaml).toContain('#   doNotTranslate:')
   })
 })

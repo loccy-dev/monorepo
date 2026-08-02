@@ -271,7 +271,7 @@ class AiClient {
 
   /** Parent locale that `locale` extends, if visible; else null. */
   overrideParentFor(locale: string, visibleLocales: string[]): string | null {
-    const value = cfg.styleguide?.locales?.[locale]
+    const value = cfg.styleguide?.localeRules?.[locale]
     if (!value || typeof value === 'string') {
       return null
     }

@@ -11,7 +11,13 @@ import { load } from 'js-yaml'
 import { z } from 'zod'
 import { initializeConfig, placeholderConfig } from './initialize-config'
 import { doNotTranslateSchema, glossarySchema } from '../../utils/styleguide/glossary-schema'
-import { DISABLED_FRAMEWORK_IDS, getFramework, getMessageFormat, listFrameworks, listMessageFormats } from '../registry'
+import {
+  activeFrameworkIds,
+  DISABLED_FRAMEWORK_IDS,
+  getFramework,
+  getMessageFormat,
+  listMessageFormats,
+} from '../registry'
 import { extractFileExt } from '../helpers/path.helpers'
 import { frameworkDefaultLayout } from './layout-defaults'
 
@@ -31,12 +37,28 @@ const localeValueSchema = z.union([
 ])
 
 const styleguideSchema: z.ZodType<StyleguideConfig, z.ZodTypeDef, unknown> = z.object({
-  code: z.string().optional(),
-  global: z.string().optional(),
-  locales: z.record(z.string(), localeValueSchema).optional(),
+  product: z.string().optional(),
+  voice: z.string().optional(),
+  mechanics: z.string().optional(),
+  localeRules: z.record(z.string(), localeValueSchema).optional(),
   doNotTranslate: doNotTranslateSchema.optional(),
   glossary: glossarySchema.optional(),
+  keys: z.string().optional(),
 })
+
+/** Styleguide fields from before the split by scope, and what each became. Dropped on read, not
+ * rejected, so an unmigrated file still loads; consumers warn from what `resolveConfig` reports. */
+export const DEPRECATED_STYLEGUIDE_FIELDS: Record<string, string> = {
+  code: 'keys',
+  global: 'product, voice and mechanics, split by what each rule is about',
+  locales: 'localeRules',
+}
+
+function deprecatedStyleguideFieldsIn(styleguide: unknown): string[] | undefined {
+  if (!styleguide || typeof styleguide !== 'object') return undefined
+  const found = Object.keys(styleguide).filter((field) => field in DEPRECATED_STYLEGUIDE_FIELDS)
+  return found.length ? found : undefined
+}
 
 const DEFAULT_MODULE = 'default'
 
@@ -44,10 +66,7 @@ const DEFAULT_MODULE = 'default'
 function resolveModule(name: string, user: PartialModuleConfig, base: ResolvedModule | undefined): ResolvedModule {
   const frameworkId = user.framework ?? base?.framework ?? 'custom'
   const framework = getFramework(frameworkId)
-  const known = listFrameworks()
-    .map((framework) => framework.id)
-    .filter((id) => !DISABLED_FRAMEWORK_IDS.has(id))
-    .join(', ')
+  const known = activeFrameworkIds().join(', ')
   if (!framework) {
     throw new LoccyConfigError(`modules.${name}.framework must be a registered framework id (known: ${known})`)
   }
@@ -136,21 +155,21 @@ export function resolveConfig(user: PartialLoccyConfig, detected: LoccyConfig | 
     modules[name] = resolveModule(name, userModule, base?.modules[name])
   }
 
-  // An empty `styleguide:` key (all fields commented out, per the generated scaffold) parses to
-  // `null`, not absent — treat it the same as omitted.
+  // A `styleguide:` key whose fields are all commented out parses to `null`, not absent — treat it
+  // the same as omitted.
   const styleguide: StyleguideConfig | undefined =
     user.styleguide != null ? styleguideSchema.parse(user.styleguide) : base?.styleguide
 
-  for (const { locale, extends: extendsLocale } of partialOverridesOf(styleguide?.locales)) {
+  for (const { locale, extends: extendsLocale } of partialOverridesOf(styleguide?.localeRules)) {
     if (!locale || !extendsLocale) {
-      throw new LoccyConfigError('styleguide.locales entries require both a locale key and `extends`')
+      throw new LoccyConfigError('styleguide.localeRules entries require both a locale key and `extends`')
     }
     if (locale === extendsLocale) {
-      throw new LoccyConfigError(`styleguide.locales: "${locale}" cannot extend itself`)
+      throw new LoccyConfigError(`styleguide.localeRules: "${locale}" cannot extend itself`)
     }
   }
 
-  return { modules, styleguide }
+  return { modules, styleguide, deprecatedStyleguideFields: deprecatedStyleguideFieldsIn(user.styleguide) }
 }
 
 /** Read `loccy.yaml` and resolve it. Auto-detection bootstraps a config-less/module-less file; an explicit `modules:` block is authoritative (no gap-filling). */
@@ -184,4 +203,14 @@ export async function readConfigFile(
 /** Read the config file, falling back to auto-detection when no file exists — for tools that should work without a committed `loccy.yaml`. */
 export async function readConfigOrDetect(platform: Platform): Promise<LoccyConfig | null> {
   return (await readConfigFile(platform)) ?? (await initializeConfig(platform))
+}
+
+/**
+ * The config narrowed to one module, or null when nothing declares it. Every run-wide command works
+ * off `config.modules`, so scoping one is narrowing that map rather than threading a name through
+ * each of them.
+ */
+export function withOnlyModule(config: LoccyConfig, name: string): LoccyConfig | null {
+  const module = config.modules[name]
+  return module ? { ...config, modules: { [name]: module } } : null
 }

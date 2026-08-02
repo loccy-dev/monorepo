@@ -46,6 +46,8 @@ Both commands exit with code `1` when issues remain, so they can gate merges:
 
 Pass `--config <path>` to point at a config outside the project root. Set `LOCCY_LINT_DEBUG=1` for debug output.
 
+Pass `--module <name>` to lint specific module.
+
 ## Rules
 
 Each rule lives on its axis in `loccy.yaml`. [Configuration docs.](https://loccy.dev/docs/config)
@@ -56,15 +58,6 @@ Each rule lives on its axis in `loccy.yaml`. [Configuration docs.](https://loccy
 | `translations.sortKeys` | Unsorted translation files (`loccy format` fixes them) |
 | `usages.noUnusedKeys` | Keys never referenced in code (`loccy lint --fix` removes them) |
 | `usages.noUnresolvedKeys` | Keys used in code but absent from translations |
-
-## Development
-
-From the monorepo root run `pnpm install`, then from `apps/lint`:
-
-```bash
-pnpm dev    # rebuild on TypeScript changes
-npm link    # once, makes `loccy` runnable from any test project
-```
 
 ## Links
 

@@ -485,7 +485,7 @@ export function renderTranslationPreviewForKeypath(keypathInfo: KeypathInfo, mod
 
   // Exclude partial overrides (partial-by-design — their empty keys are intentional, inherited
   // from their base at runtime).
-  const excludeLocales = partialOverridesOf(cfg.resolvedConfig?.styleguide?.locales).map((o) => o.locale)
+  const excludeLocales = partialOverridesOf(cfg.resolvedConfig?.styleguide?.localeRules).map((o) => o.locale)
 
   // Gate on the rule; for plurals, only check missing for locales that need this suffix.
   const emptyLocales =

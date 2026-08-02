@@ -44,7 +44,7 @@ const INIT_PROMPT = `Set up Loccy's config (i18n toolkit) in this project.
    - Dynamically-built keys: whitelist with a \`// loccy-used-keys: status.*\`
      comment next to where the key is built.
    - A regional locale that intentionally holds only overrides (e.g. de-CH on
-     top of de): add \`{ extends: <base> }\` for it under \`styleguide.locales\`
+     top of de): add \`{ extends: <base> }\` for it under \`styleguide.localeRules\`
      so lint stops counting its inherited keys as missing. Set \`extends\` only —
      the \`style\` prose is a human's to write.
 5. Re-run \`loccy lint\` until only genuine issues remain.
@@ -109,7 +109,8 @@ program
   .description('Check translation files')
   .option('--fix', 'Remove unused keys')
   .option('--config <path>', `Path to config file (default: ${loccyConfigFilename})`)
-  .action(async (options: { fix?: boolean; config?: string }) => {
+  .option('--module <name>', 'Only this module')
+  .action(async (options: { fix?: boolean; config?: string; module?: string }) => {
     await lintCommand(options)
   })
 
@@ -118,7 +119,8 @@ program
   .description('Sort keys in translation files (modules with sortKeys)')
   .option('--check', 'Report unsorted files and exit non-zero; write nothing (for CI)')
   .option('--config <path>', `Path to config file (default: ${loccyConfigFilename})`)
-  .action(async (options: { check?: boolean; config?: string }) => {
+  .option('--module <name>', 'Only this module')
+  .action(async (options: { check?: boolean; config?: string; module?: string }) => {
     await formatCommand(options)
   })
 

@@ -4,22 +4,22 @@ import { deprecatedForms, preferredForm } from '@repo/types/config.types'
 /** The styleguide sections of the config the prompt builder consumes (glossary/dnt live inside). */
 export type StyleguideBundle = Pick<LoccyConfig, 'styleguide'>
 
-/** Serialize the glossary + do-not-translate list for LLM prompt consumption, scoped to
- * `targetLocales` (plus `sourceLocale`, so the model can match the term against the source text)
- * — a glossary entry with no term in any of those locales is dropped. */
-function buildGlossaryMarkdown(
-  glossary: GlossaryEntry[],
-  doNotTranslate: DoNotTranslateEntry[],
-  targetLocales: string[],
-  sourceLocale?: string,
-): string {
-  const lines: string[] = []
+/** The declared terms that stay verbatim, one line each. */
+function buildDoNotTranslateMarkdown(doNotTranslate: DoNotTranslateEntry[]): string {
+  return doNotTranslate
+    .map((entry) => {
+      const caseNote = entry.caseSensitive ? ' (case-sensitive — preserve exact casing)' : ''
+      const definition = entry.definition ? ` — ${entry.definition}` : ''
+      return `- "${entry.term}" stays verbatim${caseNote}${definition}`
+    })
+    .join('\n')
+}
 
-  for (const entry of doNotTranslate) {
-    const caseNote = entry.caseSensitive ? ' (case-sensitive — preserve exact casing)' : ''
-    const definition = entry.definition ? ` — ${entry.definition}` : ''
-    lines.push(`- Do not translate "${entry.term}"${caseNote}${definition}`)
-  }
+/** Serialize the glossary for LLM prompt consumption, scoped to `targetLocales` (plus
+ * `sourceLocale`, so the model can match the term against the source text) — an entry with no term
+ * in any of those locales is dropped. */
+function buildGlossaryMarkdown(glossary: GlossaryEntry[], targetLocales: string[], sourceLocale?: string): string {
+  const lines: string[] = []
 
   const locales = sourceLocale ? [sourceLocale, ...targetLocales.filter((l) => l !== sourceLocale)] : targetLocales
   for (const entry of glossary) {
@@ -46,14 +46,14 @@ function buildGlossaryMarkdown(
  * entries (`{extends, style}`) carry no prose of their own — they're excluded from the base-locale
  * loop upstream, but guard here too since a fallback could still land on one. */
 export function localeProse(bundle: StyleguideBundle, locale: string): string {
-  const locales = bundle.styleguide?.locales
-  const value = locales?.[locale] ?? locales?.[locale.split('-')[0]!]
+  const localeRules = bundle.styleguide?.localeRules
+  const value = localeRules?.[locale] ?? localeRules?.[locale.split('-')[0]!]
   return typeof value === 'string' ? value.trim() : ''
 }
 
 /**
  * Compose the config's styleguide sections into prompt-ready markdown, scoped to
- * `targetLocales`: global prose, relevant per-locale prose, and glossary.
+ * `targetLocales`: product, voice and mechanics, relevant per-locale rules, and glossary.
  * `sourceLocale` (when given and not already among `targetLocales`) adds the source-language term
  * to each glossary entry, so the model can match the term against the source text — it does not
  * get its own per-locale prose section.
@@ -67,21 +67,21 @@ export function buildStyleguidePrompt(
 ): string {
   const sections: string[] = []
 
-  const global = bundle.styleguide?.global?.trim()
-  if (global) sections.push(global)
+  const styleguide = bundle.styleguide
+  if (styleguide?.product?.trim()) sections.push(`## product\n${styleguide.product.trim()}`)
+  if (styleguide?.voice?.trim()) sections.push(`## voice\n${styleguide.voice.trim()}`)
+  if (styleguide?.mechanics?.trim()) sections.push(`## mechanics\n${styleguide.mechanics.trim()}`)
 
   for (const locale of targetLocales) {
     const prose = localeProse(bundle, locale)
-    if (prose) sections.push(`## ${locale}\n${prose}`)
+    if (prose) sections.push(`## localeRules.${locale}\n${prose}`)
   }
 
-  const glossary = buildGlossaryMarkdown(
-    bundle.styleguide?.glossary ?? [],
-    bundle.styleguide?.doNotTranslate ?? [],
-    targetLocales,
-    sourceLocale,
-  )
-  if (glossary) sections.push(`## Terminology\n${glossary}`)
+  const doNotTranslate = buildDoNotTranslateMarkdown(bundle.styleguide?.doNotTranslate ?? [])
+  if (doNotTranslate) sections.push(`## doNotTranslate\n${doNotTranslate}`)
+
+  const glossary = buildGlossaryMarkdown(bundle.styleguide?.glossary ?? [], targetLocales, sourceLocale)
+  if (glossary) sections.push(`## glossary\n${glossary}`)
 
   return sections.join('\n\n')
 }

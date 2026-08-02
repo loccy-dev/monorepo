@@ -161,38 +161,70 @@
     "StyleguideConfig": {
       "type": "object",
       "properties": {
-        "code": {
+        "product": {
           "type": "string",
-          "description": "Code-side i18n guidance: key naming, file organization, coding conventions (markdown)."
+          "description": "What the product is and who uses it. e.g. \"Staff app for a cat café, used one-handed on a phone mid-shift.\""
         },
-        "global": {
+        "voice": {
           "type": "string",
-          "description": "Style guidance applied to every locale (markdown)."
+          "description": "How the product speaks, personality, how the user is addressed. e.g. \"Warm and lightly cheeky; address the user informally; no marketing filler.\""
         },
-        "locales": {
+        "mechanics": {
+          "type": "string",
+          "description": "Constraints no locale may override: length, markup, casing of code, emoji. e.g. \"Buttons and menu labels max ~25 characters. No emoji.\""
+        },
+        "localeRules": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/LocaleValue"
           },
-          "description": "Per-locale styleguide, keyed by locale code — plain prose, or a partial-override entry."
+          "description": "Per-locale rules, keyed by locale code: what that language decides. e.g. \"de: avoid anglicisms; German runs long, compress rather than truncate.\""
         },
         "doNotTranslate": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/DoNotTranslateEntry"
           },
-          "description": "Terms preserved verbatim in every locale (brand/product names)."
+          "description": "Terms preserved verbatim in every locale, such as brand and product names. e.g. \"Whisker Café — never translated, casing preserved.\""
         },
         "glossary": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/GlossaryEntry"
           },
-          "description": "Terms with approved per-locale translations (consistency)."
+          "description": "Terms with approved per-locale translations. e.g. \"a booked seating slot, not the act of reserving → Reservation (en), Reservierung (de).\""
+        },
+        "keys": {
+          "type": "string",
+          "description": "How translation keys are named and organized. e.g. \"Group by feature, dot-separated: checkout.button.submit\""
+        },
+        "code": {
+          "type": "string",
+          "deprecated": true,
+          "description": "Renamed to `keys`.",
+          "deprecationMessage": "Renamed to `keys`.",
+          "doNotSuggest": true
+        },
+        "global": {
+          "type": "string",
+          "deprecated": true,
+          "description": "Split into `product`, `voice` and `mechanics`, by what each rule is about.",
+          "deprecationMessage": "Split into `product`, `voice` and `mechanics`, by what each rule is about.",
+          "doNotSuggest": true
+        },
+        "locales": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/LocaleValue"
+          },
+          "deprecated": true,
+          "description": "Renamed to `localeRules`.",
+          "deprecationMessage": "Renamed to `localeRules`.",
+          "doNotSuggest": true
         }
       },
       "additionalProperties": false,
-      "description": "Prose + structured guidance for AI translation."
+      "description": "Hand-authored guidance for writing and translating this project's copy."
     },
     "LocaleValue": {
       "anyOf": [

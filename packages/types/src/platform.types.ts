@@ -24,6 +24,8 @@ export interface Platform {
   // everyone ignores gitignored files by default where possible
   readFile(relativePath: string): Promise<string>
   writeFile(relativePath: string, content: string): Promise<void>
+  /** Missing file is not an error: the point is that it is gone afterwards. */
+  deleteFile(relativePath: string): Promise<void>
   exists(relativePath: string): Promise<boolean>
   findFiles(patterns: string[], exclude?: string[]): Promise<string[]>
 }
