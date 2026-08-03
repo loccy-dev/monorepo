@@ -85,9 +85,30 @@ describe('reading', () => {
     expect((await run(['search', 'nothinghere'])).out).toContain('No matches')
   })
 
-  it('never matches a keypath, since a key is how a message is addressed and not how it is found', async () => {
+  it('leaves keypaths to --keys, so a word searched as text finds only messages that say it', async () => {
     baseProject()
     expect((await run(['search', 'login.title'])).out).toContain('No matches')
+
+    const byKey = await run(['search', 'login.title', '--keys'])
+    expect(byKey.out).toContain('1 key match for "login.title"')
+    expect(byKey.out).toContain('en: Sign in')
+  })
+
+  it('matches a group under --keys, so a whole subtree is read in one call', async () => {
+    baseProject()
+    const { out } = await run(['search', 'login.', '--keys'])
+    expect(out).toContain('2 key matches for "login."')
+  })
+
+  it('reads --keys against bare keypaths, with --ns the only way to name a namespace', async () => {
+    namespacedProject()
+    const narrowed = await run(['search', 'login.title', '--keys', '--ns', 'admin'])
+    expect(narrowed.out).toContain('admin:login.title')
+    expect(narrowed.out).not.toContain('auth:login.title')
+
+    const spelled = await run(['search', 'admin:login.title', '--keys'])
+    expect(spelled.code).toBe(1)
+    expect(spelled.err).toContain('spells a namespace into the key')
   })
 
   it('gives each term of a multi-term search its own block, in the order given', async () => {
@@ -222,12 +243,18 @@ describe('upsert-message', () => {
     expect(en().login.title).toBe('Sign in')
   })
 
-  it('refuses a translation that drops a do-not-translate term', async () => {
+  // A term is matched as a plain substring, so an ordinary word of one language can look like one.
+  it('warns about a dropped do-not-translate term but lets the write through', async () => {
     baseProject(STYLEGUIDED)
-    // No token: this guard is mechanical, so it fires before any confirmation is even looked at.
-    const { err } = await run(['upsert-message'], '{"login.sub":{"en":"Loccy signs you in","de":"Wir melden dich an"}}')
-    expect(err).toContain('"Loccy" must stay verbatim')
+    const batch = '{"login.sub":{"en":"Loccy signs you in","de":"Wir melden dich an"}}'
+
+    const warned = await run(['upsert-message'], batch)
+    expect(warned.out).toContain('"Loccy" must stay verbatim')
     expect(en().login.sub).toBeUndefined()
+
+    const written = await run(['upsert-message', '--styleguided', tokenFrom(warned.out)], batch)
+    expect(written.code).toBe(0)
+    expect(en().login.sub).toBe('Loccy signs you in')
   })
 
   it('writes a whole batch in one call', async () => {

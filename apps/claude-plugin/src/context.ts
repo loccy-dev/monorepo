@@ -94,17 +94,18 @@ export async function loadModuleContext(options: ModuleOptions): Promise<ModuleC
   return { platform, config, module, rm }
 }
 
+/** A key is a bare keypath; the namespace goes in `--ns`. */
+export function failOnNamespacedKey(keypath: string): void {
+  if (!keypath.includes(':')) return
+  fail(`"${keypath}" spells a namespace into the key.`, '  a key is always a bare keypath; the namespace goes in --ns')
+}
+
 /**
  * A keypath addressing exactly one message. An empty segment (`auth.`, `auth..title`) would nest
  * under a blank key that no source can reference, so it is rejected rather than written.
  */
 export function requireKeypath(keypath: string): string {
-  if (keypath.includes(':')) {
-    fail(
-      `"${keypath}" spells a namespace into the key.`,
-      '  a key is always a bare keypath; the namespace goes in --ns',
-    )
-  }
+  failOnNamespacedKey(keypath)
   if (!keypath.trim()) fail('a key cannot be empty. Write it as segments, e.g. login.title')
   if (keypath.split('.').some((segment) => !segment.trim())) {
     fail(`"${keypath}" has an empty segment. Write dot-separated segments with no blanks, e.g. login.title`)

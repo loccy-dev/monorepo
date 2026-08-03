@@ -74,20 +74,25 @@ export function buildProgram(): Command {
   withKeyOptions(
     program
       .command('search')
-      .description('Read messages: match a substring of any locale text, with usages')
+      .description('Read messages: match a substring of any locale text, or of the key with --keys')
       .argument('<query...>', 'Text to search for (case-insensitive). Several terms are searched in one call')
       .option('--locale <locale>', 'Search and show only this locale')
+      .option('--keys', 'Match the key instead of the text, for a key read out of source')
       .option('--limit <n>', 'Max matches to print in full, per term (default 10)'),
   )
     .addHelpText(
       'after',
-      '\nOnly translated text is matched, never keypaths, so a word finds the messages that say it:\n\n' +
+      '\nText is what a term matches, so a word finds the messages that say it:\n\n' +
         '  loccy-tool search Reservierung --locale de\n' +
         '  loccy-tool search Reservierung Buchung Termin --locale de\n\n' +
+        '--keys switches the whole search to keypaths, for the other question: which message is this\n' +
+        'key from source, or what sits under this group.\n\n' +
+        '  loccy-tool search login.title --keys\n' +
+        '  loccy-tool search login --keys --ns admin\n\n' +
         'Each match prints its value in every locale and the source that uses it. Several terms get a\n' +
         'block each, in the order given, which is how a glossary candidate is checked for drift in one\n' +
         'call. Beyond the limit, matches are counted, not dropped.\n\n' +
-        'A namespace goes in --ns. It is never spelled into the query, which is free text.',
+        'A namespace goes in --ns, and a keypath is always bare.',
     )
     .action(searchCommand)
 

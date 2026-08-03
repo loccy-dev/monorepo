@@ -5,7 +5,11 @@ import {
   findRedundantOverrides,
   primaryLocales,
 } from '@repo/shared/core/loccy-config/regional-override-guards'
-import { checkDoNotTranslate, checkGlossary } from '@repo/shared/utils/styleguide/check-compliance'
+import {
+  checkDoNotTranslate,
+  checkGlossary,
+  type ComplianceIssue,
+} from '@repo/shared/utils/styleguide/check-compliance'
 import { qualifyKey } from '@repo/shared/core/helpers/namespace.helpers'
 import {
   fail,
@@ -128,28 +132,32 @@ function enforceGuards(ctx: ModuleContext, entries: Entry[]): void {
         `  drop ${locale} from the JSON`,
       )
     }
-
-    for (const issue of checkDoNotTranslate(values, styleguide)) {
-      problems.push(`error: ${key}: ${issue.message}`)
-    }
   }
 
   if (problems.length) fail(...problems)
 }
 
-/** Advice worth printing but never worth blocking on. */
+/**
+ * Advice worth printing but never worth blocking on: both checks read a term as a plain substring,
+ * which an ordinary word of another language can match by coincidence.
+ */
 function printAdvisories(ctx: ModuleContext, entries: Entry[]): void {
+  const styleguide = ctx.config.styleguide
+
   for (const { ns, keypath, values } of entries) {
     const key = qualifyKey(ns, keypath)
 
-    const glossary = checkGlossary(values, ctx.config.styleguide)
-    if (glossary.length) {
-      console.log(`warning: ${key}: glossary (advisory, morphology makes this approximate)`)
-      for (const issue of glossary) console.log(`  ${issue.message}`)
-    }
-
+    printIssues(key, 'do-not-translate', checkDoNotTranslate(values, styleguide))
+    printIssues(key, 'glossary', checkGlossary(values, styleguide))
     printTwins(key, values)
   }
+}
+
+function printIssues(key: string, check: string, issues: ComplianceIssue[]): void {
+  if (!issues.length) return
+
+  console.log(`warning: ${key}: automated ${check} check triggered. Fix unless it is a false positive.`)
+  for (const issue of issues) console.log(`  ${issue.message}`)
 }
 
 /** Locales saying exactly the same thing, which usually means one of them should inherit instead. */

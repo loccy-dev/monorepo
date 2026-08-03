@@ -12,7 +12,7 @@ const COMMANDS: ToolCommand[] = [
   { usage: 'init', summary: 'scaffold loccy.yaml, for a project that has none yet' },
   {
     usage: 'search <query...>',
-    summary: 'read messages: match locale text, one or many terms, printing every locale plus usages',
+    summary: 'read messages: match locale text (or keys, with --keys), printing every locale plus usages',
   },
   { usage: 'upsert-message', summary: 'add or update keys across every locale (JSON on stdin)' },
   {
