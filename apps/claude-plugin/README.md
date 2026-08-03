@@ -30,7 +30,7 @@ claude plugin install loccy --scope project
 
 ## Tools
 
-`loccy-tool` is on the Bash tool's `PATH` while the plugin is enabled.
+`loccy-tool` ships in the plugin at `${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool`. The SessionStart hook puts its absolute path in context, and a session calls it by that path.
 
 | | |
 | :--- | :--- |

@@ -9,7 +9,7 @@ import { removeMessageCommand } from './commands/remove-message'
 import { renameKeyCommand } from './commands/rename-key'
 import { styleguideCommand, styleguideExampleCommand } from './commands/styleguide'
 import { preEditHook, sessionStartHook } from './commands/hook'
-import { WORKFLOW } from './tool-commands'
+import { workflow } from './tool-commands'
 
 function withModuleOptions(command: Command): Command {
   return command.option('--module <name>', 'i18n module to target. Only needed where the project has several')
@@ -59,7 +59,7 @@ function addHookCommands(program: Command): void {
  */
 export function buildProgram(): Command {
   const program = new Command()
-  program.name('loccy-tool').version(manifest.version, '-v, --version').showHelpAfterError(WORKFLOW)
+  program.name('loccy-tool').version(manifest.version, '-v, --version').showHelpAfterError(workflow())
 
   program
     .command('init')

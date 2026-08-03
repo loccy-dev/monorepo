@@ -1,6 +1,5 @@
 import { chmodSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loccyConfigFilename } from '@repo/types/config.types'
 import {
   baseProject,
   cleanupProject,
@@ -656,17 +655,14 @@ describe('a project with no config', () => {
     expect(err).toContain('loccy-tool init')
   })
 
-  it('says nothing at all at session start, so the plugin stays invisible here', async () => {
+  it('says only where the binary is at session start, so setup can run and nothing else is claimed', async () => {
     makeProject({ 'locales/en.json': '{"a":"b"}' })
     const { out, code } = await run(['hook-session-start'], '{}')
-    expect({ out, code }).toEqual({ out: '', code: 0 })
-  })
 
-  it('says why under debug, since silence and a broken hook look alike', async () => {
-    makeProject({ 'locales/en.json': '{"a":"b"}' })
-    const { out, err } = await run(['hook-session-start-debug'], '{}')
-    expect(out).toBe('')
-    expect(err).toContain(`no ${loccyConfigFilename}`)
+    const context = JSON.parse(out).hookSpecificOutput.additionalContext
+    expect(code).toBe(0)
+    expect(context).toContain('Run loccy-tool by its full path')
+    expect(context).not.toContain('## This project')
   })
 
   it('scaffolds the config once, and never overwrites it', async () => {

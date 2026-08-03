@@ -37,14 +37,16 @@ Every batch is all-or-nothing: no file changes unless all of them can.`
 
 /**
  * The tool in full: what it is for, every command it has, and how a batch is spelled. Printed for a
- * bare invocation and for -h/--help, and carried verbatim into the session briefing, so the command
- * reference exists once.
+ * bare invocation and for -h/--help, and carried into the session briefing, so the command
+ * reference exists once. A session gets the absolute path as `bin`, a terminal the plain name.
  */
-export const WORKFLOW = `loccy-tool: CLI to manage i18n, designed for AI coding agents.
+export function workflow(bin = 'loccy-tool'): string {
+  return `${bin}: CLI to manage i18n, designed for AI coding agents.
 Use it instead of editing translation files by hand.
 
 ${renderCommands()}
 
 ${BATCH_SYNTAX}
 
-loccy-tool <command> --help for details.`
+Pass --help to any command for details.`
+}

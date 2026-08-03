@@ -1,7 +1,7 @@
 ---
 name: author-styleguide
 description: Write or extend the `styleguide` in loccy.yaml, the rules every later translation is checked against. Use when the styleguide is empty or still the commented-out scaffold, when asked to write down translation or wording rules, when a project's tone or terminology should be captured, or when the user keeps correcting the same thing in generated copy.
-allowed-tools: Bash(loccy-tool:*), WebFetch
+allowed-tools: Bash, WebFetch
 ---
 
 # Author the styleguide
@@ -28,9 +28,9 @@ Well over that usually means rules were invented rather than observed, when crea
 
 ## Search
 
-When searching for existing copy, `loccy-tool search` may help.
+When searching for existing copy, `loccy-tool search` may help. Run `loccy-tool search --help` for its options.
 
-!`loccy-tool search --help`
+`loccy-tool` stands for the full path given in the Loccy session context.
 
 
 # Best practices
@@ -42,4 +42,4 @@ When searching for existing copy, `loccy-tool search` may help.
 
 # Example of small demo project's styleguide
 
-!`loccy-tool styleguide-example`
+Run `loccy-tool styleguide-example` to print one.

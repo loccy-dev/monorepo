@@ -1,7 +1,7 @@
 ---
 name: loccy-toolkit
 description: What Loccy is, what each of its tools is for, and recommended setup steps from scratch. Use when asked to set up, configure or repair Loccy, or when more about the Loccy i18n toolkit is needed.
-allowed-tools: Bash(loccy-tool:*), WebFetch
+allowed-tools: Bash, WebFetch
 ---
 
 # Loccy toolkit
@@ -10,7 +10,7 @@ About, docs: https://loccy.dev/llms.txt
 
 One `loccy.yaml` per repo holds the whole i18n setup. All products read it. Schema - https://loccy.dev/schemas/config.schema.json
 
-- `loccy-tool`, this plugin's CLI, already on your PATH: `loccy-tool --help`
+- `loccy-tool`, this plugin's CLI. Its full path is given in the Loccy session context, and every `loccy-tool` below stands for that path.
 
 - IDE extension for VS Code -based editors such VS Code, Cursor, etc. For human developers. Shows translations inline near keys, quick edits, all usages of key, quick AI-powered edits like "change one language and sync others" inside one key, etc. more at https://github.com/loccy-dev/monorepo/tree/main/apps/extension/README.md
 

@@ -170,18 +170,19 @@ export async function preEditHook(debug: boolean, file?: string): Promise<void> 
  * SessionStart: put the project's own i18n setup and styleguide in context before the first message
  * is written, so the rules never have to be asked for. An unconfigured project gets the offer to run
  * setup instead, a broken config gets the parse error, and one with no translations gets nothing.
+ * `argv[1]` is the plugin root the harness expanded, which is the path a session runs the tool by.
  */
 export async function sessionStartHook(debug: boolean): Promise<void> {
   const input = await readHookInput()
   startLog()
 
   const cwd = input?.cwd ?? process.cwd()
+  const bin = process.argv[1] ?? 'loccy-tool'
 
-  const context = await buildStartupContext(createNodePlatform(cwd)).catch(
+  const context = await buildStartupContext(createNodePlatform(cwd), bin).catch(
     (err: unknown) =>
-      `# Loccy\n\n\`${loccyConfigFilename}\` does not load, so every loccy-tool command will fail until it does:\n\n${reasonFor(err) ?? String(err)}`,
+      `# Loccy\n\n\`${loccyConfigFilename}\` does not load, so every ${bin} command will fail until it does:\n\n${reasonFor(err) ?? String(err)}`,
   )
-  if (!context) return silent(debug, `no ${loccyConfigFilename} in ${cwd}, so the plugin has nothing to say there`)
 
   emit(
     {

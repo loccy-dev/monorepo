@@ -5,7 +5,7 @@ import { readConfigFile } from '@repo/shared/core/loccy-config/loccy-config'
 import { createResourceManager } from '@repo/shared/core/resources/resource-manager'
 import { renderModule } from '@repo/shared/core/loccy-config/config-templates'
 import { droppedStyleguideNote } from '../styleguide-output'
-import { WORKFLOW } from '../tool-commands'
+import { workflow } from '../tool-commands'
 
 /**
  * The config as `loccy.yaml` holds it, then the locales and namespaces the translation files
@@ -45,17 +45,22 @@ async function describeSetup(
   return { blocks: `modules:\n${yaml}\n\n${detected.join('\n')}`, mostNamespaces }
 }
 
+/** The binary ships inside the plugin, so its own path is the only way to run it. */
+function whereTheBinaryIs(bin: string): string {
+  return `Run loccy-tool by its full path: ${bin}`
+}
+
 /**
  * What a session opens on: the tool it operates i18n through, and what this project resolves to.
- * A project with no `loccy.yaml` gets nothing at all, so the plugin stays invisible where it has
- * nothing to say.
+ * A project with no `loccy.yaml` is told only where the binary is, so the plugin stays close to
+ * invisible where it has nothing to say, while setup can still be run.
  */
-export async function buildStartupContext(platform: Platform): Promise<string | null> {
+export async function buildStartupContext(platform: Platform, bin: string): Promise<string> {
   const config = await readConfigFile(platform)
-  if (!config) return null
+  if (!config) return whereTheBinaryIs(bin)
 
   const { blocks, mostNamespaces } = await describeSetup(platform, config)
-  const sections = [`## This project uses i18n\n\n${blocks}`, WORKFLOW]
+  const sections = [`## This project uses i18n\n\n${blocks}`, whereTheBinaryIs(bin), workflow(bin)]
 
   const dropped = droppedStyleguideNote(config)
   if (dropped) sections.push(dropped)

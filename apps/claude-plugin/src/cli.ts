@@ -1,6 +1,6 @@
 import { traceInvocation } from './debug-log'
 import { buildProgram } from './program'
-import { WORKFLOW } from './tool-commands'
+import { workflow } from './tool-commands'
 
 traceInvocation(process.argv)
 
@@ -11,7 +11,7 @@ const rootArg = process.argv[2]
 const bareHelp = ['-h', '--help', 'help'].includes(rootArg ?? '') && process.argv.length === 3
 
 if (!rootArg || bareHelp) {
-  console.log(WORKFLOW)
+  console.log(workflow())
   process.exit(0)
 }
 
