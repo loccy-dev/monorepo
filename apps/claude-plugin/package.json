@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit && prettier --check \"src/**/*.ts\" && node esbuild.config.js --check",
     "test": "vitest run",
     "build:check": "node esbuild.config.js --check",
-    "flt": "npm run format && npm run build && npm run lint && npm run test"
+    "flt": "npm run format && npm run lint && npm run test"
   },
   "devDependencies": {
     "@repo/node-platform": "workspace:*",

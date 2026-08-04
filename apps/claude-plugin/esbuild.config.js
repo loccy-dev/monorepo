@@ -2,9 +2,9 @@ import { build, context } from "esbuild";
 import { chmodSync, readFileSync } from "node:fs";
 
 const isDev = process.argv.includes("--watch");
-// The plugin ships `plugin/bin/loccy-tool` committed, so a src change that never got rebuilt, or a
-// watch build that went in unminified, would install as-is. --check builds in memory and compares,
-// without touching the committed file. It runs as part of `lint`, which is what catches either in CI.
+// The plugin ships `plugin/bin/loccy-tool` committed, so a src change that never got rebuilt would
+// install as-is. --check builds in memory and compares, without touching the committed file. It runs
+// as part of `lint`, which must not rebuild first or the comparison is against its own output.
 const isCheck = process.argv.includes("--check");
 
 // `plugin/` is what gets installed; everything beside it is source that never ships.
@@ -19,7 +19,8 @@ const buildConfig = {
   target: "node18",
   format: "esm",
   bundle: true,
-  minify: !isDev,
+  // watch emits the same bytes as a one-off build, so `dev` never dirties the committed file
+  minify: true,
   // bundled CJS deps still call require() at runtime
   banner: {
     js: "#!/usr/bin/env node\nimport { createRequire } from 'module'; const require = createRequire(import.meta.url);",
