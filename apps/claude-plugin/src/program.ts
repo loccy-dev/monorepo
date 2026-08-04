@@ -1,4 +1,4 @@
-import { Command, Option } from 'commander'
+import { Command } from 'commander'
 import { loccyConfigFilename } from '@repo/types/config.types'
 import { LOCCY_SCHEMA_URL } from '@repo/shared/core/config'
 import manifest from '../plugin/.claude-plugin/plugin.json'
@@ -74,24 +74,39 @@ export function buildProgram(): Command {
   withKeyOptions(
     program
       .command('search')
-      .description('Read messages: match a substring of any locale text, or of the key with --keys')
-      .argument('<query...>', 'Text to search for (case-insensitive). Several terms are searched in one call')
+      .description('Read messages: match locale text, the keypath, or both at once. Queries are regular expressions')
+      .argument('[query...]', 'Pattern the text must match (case-insensitive). Several are searched in one call')
+      .option(
+        '--key <pattern>',
+        'Keypath to match, narrowing the text query rather than replacing it. `-` reads exact keypaths from stdin, one per line',
+      )
       .option('--locale <locale>', 'Search and show only this locale')
-      .option('--keys', 'Match the key instead of the text, for a key read out of source')
-      .option('--limit <n>', 'Max matches to print in full, per term (default 10)'),
+      .option('--json', 'Print the whole call as one JSON document, for joining against something else')
+      .option('--limit <n>', 'Max matches to print in full, per term. Uncapped unless you say so'),
   )
     .addHelpText(
       'after',
-      '\nText is what a term matches, so a word finds the messages that say it:\n\n' +
+      '\nEvery query is a case-insensitive regular expression, over the text by default:\n\n' +
         '  loccy-tool search Reservierung --locale de\n' +
-        '  loccy-tool search Reservierung Buchung Termin --locale de\n\n' +
-        '--keys switches the whole search to keypaths, for the other question: which message is this\n' +
-        'key from source, or what sits under this group.\n\n' +
-        '  loccy-tool search login.title --keys\n' +
-        '  loccy-tool search login --keys --ns admin\n\n' +
-        'Each match prints its value in every locale and the source that uses it. Several terms get a\n' +
-        'block each, in the order given, which is how a glossary candidate is checked for drift in one\n' +
-        'call. Beyond the limit, matches are counted, not dropped.\n\n' +
+        '  loccy-tool search Reservierung Buchung Termin --locale de\n' +
+        "  loccy-tool search 'Could ?n.t' --locale en\n\n" +
+        '--key matches the keypath instead, for the other question: which message is this key from\n' +
+        'source, or what sits under this group. Alone it is the whole search; with a term it narrows it.\n\n' +
+        '  loccy-tool search --key login\n' +
+        "  loccy-tool search --key '^Tickets\\..*Tooltip$'\n" +
+        "  loccy-tool search '\\.$' --key '^(?!.*[Tt]ooltip)' --locale en\n\n" +
+        'A phrase out of the UI is the same thing with its pattern characters escaped:\n\n' +
+        '  loccy-tool search "Are you sure\\? \\(optional\\)"\n\n' +
+        'Keep patterns simple: nested quantifiers can hang the search.\n\n' +
+        'Holding a key list already, from a grep over the source that calls them, pipe it in and read\n' +
+        'the values back rather than opening the locale files. Those are matched exactly, never as\n' +
+        'patterns:\n\n' +
+        '  grep -rhoE "t\\(\x27[A-Za-z0-9_.]+\x27\\)" src | sed -E "s/.*\x27(.*)\x27.*/\\1/" | sort -u \\\n' +
+        '    | loccy-tool search --key - --locale en --json\n\n' +
+        '--json prints one document per call: every block, its total, and each match with the value\n' +
+        'each locale holds. That is the form to join against grep output or feed to jq.\n\n' +
+        'Each match prints its value in every locale. Several terms get a block each, in the order\n' +
+        'given, which is how a glossary candidate is checked for drift in one call.\n\n' +
         'A namespace goes in --ns, and a keypath is always bare.',
     )
     .action(searchCommand)
@@ -100,10 +115,10 @@ export function buildProgram(): Command {
     program
       .command('upsert-message')
       .description('Add or update keys across every locale file in one call')
-      // Deliberately undocumented: the command names this flag when it prints the styleguide, so
-      // knowing it means having been shown the rules it certifies.
-      .addOption(new Option('--styleguided <token>').hideHelp())
-      .option('--force', 'Allow emptying the last locale while the key is still used'),
+      .option(
+        '--styleguided <token>',
+        'Confirm the rules were read. `loccy-tool styleguide` prints them and the token that goes here',
+      ),
   )
     .addHelpText(
       'after',
@@ -118,31 +133,27 @@ export function buildProgram(): Command {
         'to make one locale fall back while the rest keep their own text:\n\n' +
         '  {"login.ok":{"en":"Continue","de":"Weiter","de-AT":"","de-DE":""}}\n\n' +
         'Always enforced: every primary locale present in one call, and no partial-override locale\n' +
-        'repeating the locale it extends. Nothing is written unless every key in the batch can be.',
+        'repeating the locale it extends. Atomic - nothing is written unless every key in the batch can be.\n\n' +
+        'Run `loccy-tool styleguide` before the first call, and pass the token it prints as\n' +
+        '--styleguided from that write on.',
     )
     .action(upsertMessageCommand)
 
   withKeyOptions(
     program
       .command('remove-message')
-      .description('Remove keys from every locale file that holds them. Refuses while the code still uses one')
-      .argument('<key...>', 'Keypaths to remove, e.g. login.title.')
-      .option('--force', 'Remove even though usages remain (they will resolve to nothing)'),
+      .description('Remove keys from every locale file that holds them')
+      .argument('<key...>', 'Keypaths to remove, e.g. login.title.'),
   )
     .addHelpText(
       'after',
       '\n  loccy-tool remove-message login.old                  # i18n setup without namespaces\n' +
         '  loccy-tool remove-message login.old --ns auth        # namespaced i18n setup\n' +
-        '  loccy-tool remove-message login.old signup.old       # several at once, all or nothing\n' +
-        '\nA key still referenced in source is not removed: those calls would render the raw keypath.\n' +
-        'Update the code first. Keys built at runtime are reported as dynamic and block the same way,\n' +
-        'since the scanner cannot prove they are gone. A usage scan that cannot run blocks too.',
+        '  loccy-tool remove-message login.old signup.old       # several at once, all or nothing',
     )
     .action(removeMessageCommand)
 
-  withKeyOptions(
-    program.command('rename-key').description('Rename keys across locale files and rewrite static call sites'),
-  )
+  withKeyOptions(program.command('rename-key').description('Rename keys across every locale file'))
     .addHelpText(
       'after',
       '\nRenames go in as JSON on stdin, one pair or many, applied all or nothing:\n\n' +
@@ -151,12 +162,22 @@ export function buildProgram(): Command {
         '  EOF\n\n' +
         'A namespace goes in --ns, never spelled into the keys, and a rename never crosses one.\n' +
         'A key already in use is never renamed onto: merge deliberately with upsert-message, then remove-message.\n' +
-        '\nKeys built at runtime cannot be matched reliably, so those usages are reported for a manual recheck.',
+        '\nLinked references between messages (`@:old.key`) follow the rename.',
     )
     .action(renameKeyCommand)
 
   // No --module: one styleguide governs the project, whatever modules it splits its messages into.
-  program.command('styleguide').description("The project's writing rules in full.").action(styleguideCommand)
+  program
+    .command('styleguide')
+    .description("The project's writing rules in full. Read all of it, never a slice")
+    .addHelpText(
+      'after',
+      '\nRead the output whole, and again whenever the rules may have moved: a write is checked against\n' +
+        'these rules, and only what is in context can be written against. Piping this through head, tail\n' +
+        'or grep keeps the token at the end and drops the rules it stands for, leaving the next write\n' +
+        'confirming something nobody read.',
+    )
+    .action(styleguideCommand)
 
   // Hidden: authoring a styleguide is what the skill is for, and a session that is not doing it has
   // no use for an example of one.

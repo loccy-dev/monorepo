@@ -10,6 +10,7 @@ import {
   checkGlossary,
   type ComplianceIssue,
 } from '@repo/shared/utils/styleguide/check-compliance'
+import { s } from '@repo/shared/core/helpers/helpers'
 import { qualifyKey } from '@repo/shared/core/helpers/namespace.helpers'
 import {
   fail,
@@ -19,17 +20,16 @@ import {
   type KeyOptions,
   type ModuleContext,
 } from '../context'
+import { collapsePaths } from '../file-list'
 import { failOnStructuralCollision } from '../keypath-guards'
 import {
   hasStyleguideRules,
   printHandshake,
-  printInheritedOverrides,
   printStyleguide,
   styleguidedFlag,
   styleguideToken,
 } from '../styleguide-output'
 import { readStdin } from '../stdin'
-import { blockIfStillUsed, scanUsages } from '../usages'
 import { writeAllOrNothing } from '../write'
 
 /** One key's write: where it lands and what every locale is to say. */
@@ -97,15 +97,6 @@ function deletedLocales(values: LocalizedText): string[] {
     .map(([locale]) => locale)
 }
 
-/** Locales that would still hold the key after the write, counting what the files already say. */
-function remainingLocales(ctx: ModuleContext, entry: Entry): string[] {
-  return ctx.rm.allLocales.filter((locale) =>
-    locale in entry.values
-      ? entry.values[locale]!.trim()
-      : ctx.rm.getFlatTranslationsPerLocale(entry.ns)[locale]?.[entry.keypath]?.trim(),
-  )
-}
-
 /** Hard guards. Anything reported here is mechanically wrong, so the whole batch is refused. */
 function enforceGuards(ctx: ModuleContext, entries: Entry[]): void {
   const styleguide = ctx.config.styleguide
@@ -149,7 +140,6 @@ function printAdvisories(ctx: ModuleContext, entries: Entry[]): void {
 
     printIssues(key, 'do-not-translate', checkDoNotTranslate(values, styleguide))
     printIssues(key, 'glossary', checkGlossary(values, styleguide))
-    printTwins(key, values)
   }
 }
 
@@ -160,35 +150,8 @@ function printIssues(key: string, check: string, issues: ComplianceIssue[]): voi
   for (const issue of issues) console.log(`  ${issue.message}`)
 }
 
-/** Locales saying exactly the same thing, which usually means one of them should inherit instead. */
-function printTwins(key: string, values: LocalizedText): void {
-  const byText = new Map<string, string[]>()
-  for (const [locale, value] of Object.entries(values)) {
-    const text = value.trim()
-    if (!text) continue
-    byText.set(text, [...(byText.get(text) ?? []), locale])
-  }
-
-  for (const [text, locales] of byText) {
-    if (locales.length < 2) continue
-    console.log(`warning: ${key}: ${locales.join(', ')} all say "${text}"`)
-    console.log(
-      '  where one of these only ever deviates from another in small ways, configure it as' +
-        ' { extends: <locale> } under styleguide.localeRules and omit it here',
-    )
-  }
-}
-
-/** Every locale any entry writes, in project order. */
-function touchedLocales(ctx: ModuleContext, entries: Entry[]): string[] {
-  const touched = new Set(entries.flatMap((entry) => Object.keys(entry.values)))
-  return ctx.rm.allLocales.filter((locale) => touched.has(locale))
-}
-
-/** The styleguide review this command demands before it writes anything. */
+/** Points at the rules rather than reprinting them: that command is what hands out the token. */
 function printStyleguideReview(ctx: ModuleContext, entries: Entry[]): void {
-  console.log('\n[nothing written yet]')
-
   for (const entry of entries) {
     const deleted = deletedLocales(entry.values)
     if (deleted.length) {
@@ -198,10 +161,9 @@ function printStyleguideReview(ctx: ModuleContext, entries: Entry[]): void {
     }
   }
 
-  console.log('Check the values you passed against the styleguide below, and fix them where they drift.\n')
-
-  printStyleguide(ctx.config, ctx.rm.allLocales, touchedLocales(ctx, entries))
-  printHandshake(`  rerun the same command, with ${styleguidedFlag(ctx.config)} added`)
+  console.log('\n  loccy-tool styleguide')
+  console.log('\nThat prints the rules this project writes by, and the token. Check the values against them,')
+  console.log('then rerun with --styleguided <token>.')
 }
 
 /**
@@ -225,9 +187,7 @@ function printTemplate(ctx: ModuleContext): void {
 }
 
 /** Add or update keys across locale files. Prints the styleguide and writes nothing until confirmed. */
-export async function upsertMessageCommand(
-  options: KeyOptions & { styleguided?: string; force?: boolean },
-): Promise<void> {
+export async function upsertMessageCommand(options: KeyOptions & { styleguided?: string }): Promise<void> {
   const raw = await readStdin()
   const ctx = await loadModuleContext(options)
 
@@ -244,12 +204,6 @@ export async function upsertMessageCommand(
     entries.map((entry) => entry.keypath),
   )
   enforceGuards(ctx, entries)
-
-  // Emptying every locale is a delete by another name, so it answers to the same guard.
-  const emptied = entries.filter((entry) => !remainingLocales(ctx, entry).length)
-  if (emptied.length) {
-    blockIfStillUsed(ctx, await scanUsages(ctx, emptied), emptied, options.force ?? false)
-  }
 
   printAdvisories(ctx, entries)
 
@@ -274,7 +228,8 @@ function confirmed(ctx: ModuleContext, entries: Entry[], token: string | undefin
   if (token) {
     console.log(`\n[nothing written yet] token ${token} does not match this project's styleguide as it stands.`)
     console.log('Either the rules changed since it was issued, or it came from somewhere else.')
-    console.log('Here are the rules as they are now. Check the values against them again.\n')
+  } else {
+    console.log('\n[nothing written yet] this call carries no --styleguided token.')
   }
   printStyleguideReview(ctx, entries)
   return false
@@ -296,38 +251,30 @@ async function applyEntries(ctx: ModuleContext, entries: Entry[]): Promise<void>
     for (const [filePath, content] of ctx.rm.updateKeypaths(perKeypath, ns)) changed.set(filePath, content)
   }
 
+  if (!changed.size) {
+    console.log(`no change: the files already say exactly this for ${entries.length} key${s(entries.length)}`)
+    return
+  }
+
   await writeAllOrNothing(ctx.platform, changed)
 
-  for (const entry of entries) {
-    const key = qualifyKey(entry.ns, entry.keypath)
-    console.log(`wrote: ${key}`)
-    for (const [locale, value] of Object.entries(entry.values)) {
-      console.log(`  ${locale}: ${value.trim() ? value : '(deleted from this locale)'}`)
-    }
-    printStaleNameReminder(entry, before.get(key) ?? {})
-  }
-  console.log(`files: ${[...changed.keys()].join(', ')}`)
-
-  printInheritedOverrides(ctx.config, ctx.rm.allLocales, touchedLocales(ctx, entries))
+  // The caller sent these values and named these keys, so neither is worth printing back.
+  console.log(`wrote ${entries.length} key${s(entries.length)} to ${collapsePaths([...changed.keys()])}`)
+  printStaleNameReminder(entries, before)
 }
 
 /**
- * Reworded copy is where a keypath quietly stops describing its message. Raised only where copy
- * this key already carried actually changed, so it stays a prompt to look rather than a footer.
+ * Reworded copy is where a keypath quietly stops describing its message. Raised only where copy a
+ * key already carried actually changed, never for one this call adds.
  */
-function printStaleNameReminder(entry: Entry, before: LocalizedText): void {
-  const reworded = Object.entries(entry.values).find(
-    ([locale, value]) => before[locale]?.trim() && value.trim() && before[locale]!.trim() !== value.trim(),
+function printStaleNameReminder(entries: Entry[], before: Map<string, LocalizedText>): void {
+  const reworded = entries.some((entry) =>
+    Object.entries(entry.values).some(([locale, value]) => {
+      const previous = before.get(qualifyKey(entry.ns, entry.keypath))?.[locale]?.trim()
+      return previous && value.trim() && previous !== value.trim()
+    }),
   )
   if (!reworded) return
 
-  const [locale, value] = reworded
-  const segment = entry.keypath.split('.').pop()
-  console.log(
-    `  reminder: this key is named "${segment}" and its ${locale} value now reads "${value.trim()}" (was "${before[locale]!.trim()}")`,
-  )
-  console.log(
-    '    keep the name if it still describes the message: it is referenced from source, so renaming is not free',
-  )
-  console.log('    if the name has become misleading: loccy-tool rename-key <old> <new>')
+  console.log('  hint: copy changed, so a keypath may no longer describe its message. rename-key the ones that drifted')
 }

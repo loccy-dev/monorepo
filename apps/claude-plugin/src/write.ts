@@ -1,4 +1,5 @@
 import type { Platform } from '@repo/types/platform.types'
+import { collapsePaths } from './file-list'
 
 /** What a file looked like before the batch, `null` where the batch is the thing that creates it. */
 type Snapshot = Map<string, string | null>
@@ -49,7 +50,7 @@ export async function writeAllOrNothing(platform: Platform, changed: Map<string,
     const reason = err instanceof Error ? err.message : String(err)
     throw new Error(
       failures.length
-        ? `${reason}\nRolled the batch back, except: ${failures.join(', ')}. Check those files by hand.`
+        ? `${reason}\nRolled the batch back, except: ${collapsePaths(failures)}. Check those files by hand.`
         : `${reason}\nNothing was written: the batch was rolled back.`,
     )
   }

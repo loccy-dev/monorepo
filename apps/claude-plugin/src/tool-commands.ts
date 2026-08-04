@@ -11,16 +11,16 @@ interface ToolCommand {
 const COMMANDS: ToolCommand[] = [
   { usage: 'init', summary: 'scaffold loccy.yaml, for a project that has none yet' },
   {
-    usage: 'search <query...>',
-    summary: 'read messages: match locale text (or keys, with --keys), printing every locale plus usages',
+    usage: 'search [query...]',
+    summary: 'read messages by text regex, --key <regex> (or `-` for a key list on stdin). --json',
   },
   { usage: 'upsert-message', summary: 'add or update keys across every locale (JSON on stdin)' },
   {
     usage: 'remove-message <key...>',
     summary: 'remove keys from every locale',
   },
-  { usage: 'rename-key', summary: 'rename across locales, linked refs, call sites (JSON on stdin)' },
-  { usage: 'styleguide', summary: 'full styleguide (read before adding/editing translations)' },
+  { usage: 'rename-key', summary: 'rename across locales and linked refs, source untouched (JSON on stdin)' },
+  { usage: 'styleguide', summary: 'the writing rules, read whole before adding/editing translations' },
 ]
 
 const WIDTH = Math.max(...COMMANDS.map((command) => command.usage.length))
@@ -42,7 +42,11 @@ Every batch is all-or-nothing: no file changes unless all of them can.`
  */
 export function workflow(bin = 'loccy-tool'): string {
   return `${bin}: CLI to manage i18n, designed for AI coding agents.
-Use it instead of editing translation files by hand.
+Use it instead of reading or editing translation files by hand. Don't grep, read or write them directly.
+
+Translation files are all it touches. The keys in your source are yours: no call site is ever
+written, moved or deleted here, so a key you add still has to be called, and one you rename or
+remove leaves references behind for you to update.
 
 ${renderCommands()}
 

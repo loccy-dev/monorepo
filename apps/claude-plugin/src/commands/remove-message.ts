@@ -1,11 +1,11 @@
 import type { LocalizedText } from '@repo/types/primitives.types'
 import { qualifyKey } from '@repo/shared/core/helpers/namespace.helpers'
 import { fail, loadModuleContext, requireKeypath, resolveNamespace, type KeyOptions } from '../context'
-import { blockIfStillUsed, scanUsages } from '../usages'
+import { collapsePaths } from '../file-list'
 import { writeAllOrNothing } from '../write'
 
-/** Remove keys from every locale file that holds them. Refuses while the code still references one. */
-export async function removeMessageCommand(keys: string[], options: KeyOptions & { force?: boolean }): Promise<void> {
+/** Remove keys from every locale file that holds them. */
+export async function removeMessageCommand(keys: string[], options: KeyOptions): Promise<void> {
   const ctx = await loadModuleContext(options)
   const ns = resolveNamespace(ctx, options)
   const resolved = keys.map((key) => ({ ns, keypath: requireKeypath(key) }))
@@ -16,8 +16,6 @@ export async function removeMessageCommand(keys: string[], options: KeyOptions &
   if (missing.length) {
     fail(`error: not found: ${missing.map(({ ns, keypath }) => qualifyKey(ns, keypath)).join(', ')}`)
   }
-
-  blockIfStillUsed(ctx, await scanUsages(ctx, resolved), resolved, options.force ?? false)
 
   const changed = new Map<string, string>()
   for (const { ns, keypath } of resolved) {
@@ -32,5 +30,5 @@ export async function removeMessageCommand(keys: string[], options: KeyOptions &
   await writeAllOrNothing(ctx.platform, changed)
 
   console.log(`removed: ${resolved.map(({ ns, keypath }) => qualifyKey(ns, keypath)).join(', ')}`)
-  console.log(`files: ${[...changed.keys()].join(', ')}`)
+  console.log(`files: ${collapsePaths([...changed.keys()])}`)
 }

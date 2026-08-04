@@ -23,15 +23,6 @@ styleguide:
     - term: Loccy
 `
 
-const UNSCANNABLE = `modules:
-  default:
-    framework: custom
-    translations:
-      glob: 'locales/**/*.json'
-    usages:
-      include: []
-`
-
 const en = () => JSON.parse(readProjectFile('locales/en.json'))
 const de = () => JSON.parse(readProjectFile('locales/de.json'))
 const source = () => readProjectFile('src/app.ts')
@@ -54,29 +45,11 @@ describe('reading', () => {
     expect((await run(['hook-session-start-debug'], '{}')).out).toContain(context)
   })
 
-  it('shows a key in every locale with the source that uses it', async () => {
+  it('shows a key in every locale', async () => {
     baseProject()
     const { out } = await run(['search', 'Sign in'])
     expect(out).toContain('en: Sign in')
     expect(out).toContain('de: Anmelden')
-    expect(out).toContain('src/app.ts:1')
-  })
-
-  it('says a usage scan never ran rather than printing nothing, which would read as unused', async () => {
-    baseProject(UNSCANNABLE)
-    const { out } = await run(['search', 'Sign in'])
-    expect(out).toContain('usages: not scanned')
-    expect(out).not.toContain('usages: none found')
-  })
-
-  it('treats source globs that match no file as no answer, not as an unused key', async () => {
-    baseProject(CONFIG.replace("- 'src/**/*.ts'", "- 'nowhere/**/*.ts'"))
-    const { out } = await run(['search', 'Sign in'])
-    expect(out).toContain('usages: not scanned')
-
-    const removal = await run(['remove-message', 'login.title'])
-    expect(removal.code).toBe(1)
-    expect(en().login.title).toBe('Sign in')
   })
 
   it('searches values and reports an honest miss', async () => {
@@ -85,28 +58,117 @@ describe('reading', () => {
     expect((await run(['search', 'nothinghere'])).out).toContain('No matches')
   })
 
-  it('leaves keypaths to --keys, so a word searched as text finds only messages that say it', async () => {
+  it('leaves keypaths to --key, so a word searched as text finds only messages that say it', async () => {
     baseProject()
     expect((await run(['search', 'login.title'])).out).toContain('No matches')
 
-    const byKey = await run(['search', 'login.title', '--keys'])
-    expect(byKey.out).toContain('1 key match for "login.title"')
+    const byKey = await run(['search', '--key', 'login.title'])
+    expect(byKey.out).toContain('1 match for keys matching "login.title"')
     expect(byKey.out).toContain('en: Sign in')
   })
 
-  it('matches a group under --keys, so a whole subtree is read in one call', async () => {
+  it('matches a group under --key, so a whole subtree is read in one call', async () => {
     baseProject()
-    const { out } = await run(['search', 'login.', '--keys'])
-    expect(out).toContain('2 key matches for "login."')
+    const { out } = await run(['search', '--key', 'login.'])
+    expect(out).toContain('2 matches for keys matching "login."')
   })
 
-  it('reads --keys against bare keypaths, with --ns the only way to name a namespace', async () => {
+  it('narrows a text query by keypath when given both, rather than matching either', async () => {
+    baseProject()
+    const both = await run(['search', 'Sign in', '--key', 'login.title'])
+    expect(both.out).toContain('1 match for "Sign in" and keys matching "login.title"')
+
+    // The text is there and the key exists, but not on the same message.
+    const disjoint = await run(['search', 'Sign in', '--key', 'login.ok'])
+    expect(disjoint.out).toContain('No matches')
+  })
+
+  it('reads every query as a pattern, and refuses one that does not compile', async () => {
+    baseProject()
+    const matched = await run(['search', '^Sign', '--key', 'title$'])
+    expect(matched.out).toContain('keypath: login.title')
+
+    // A glob is not a pattern, and saying so beats answering with an empty result.
+    const glob = await run(['search', '--key', '*title*'])
+    expect(glob.code).toBe(1)
+    expect(glob.err).toContain('not a valid regular expression')
+  })
+
+  it('matches a phrase out of the UI once its pattern characters are escaped', async () => {
+    baseProject()
+    await run(['upsert-message'], '{"login.ask":{"en":"Are you sure? (optional)","de":"Sicher? (optional)"}}')
+
+    const escaped = await run(['search', 'Are you sure\\? \\(optional\\)'])
+    expect(escaped.out).toContain('keypath: login.ask')
+  })
+
+  it('asks for something to match rather than dumping the corpus', async () => {
+    baseProject()
+    const { err, code } = await run(['search'])
+    expect(code).toBe(1)
+    expect(err).toContain('nothing to search for')
+  })
+
+  it('prints every match, since a search that stops at ten reads as a corpus that holds ten', async () => {
+    baseProject()
+    writeProjectFile(
+      'locales/en.json',
+      JSON.stringify({ k: Object.fromEntries([...Array(25)].map((_, i) => [`k${i}`, `value ${i}`])) }),
+    )
+    writeProjectFile(
+      'locales/de.json',
+      JSON.stringify({ k: Object.fromEntries([...Array(25)].map((_, i) => [`k${i}`, `Wert ${i}`])) }),
+    )
+
+    const all = await run(['search', 'value', '--locale', 'en'])
+    expect(all.out.match(/^keypath:/gm)).toHaveLength(25)
+    expect(all.out).not.toContain('more (')
+
+    // A cap is still available, and still says what it dropped.
+    const capped = await run(['search', 'value', '--locale', 'en', '--limit', '3'])
+    expect(capped.out.match(/^keypath:/gm)).toHaveLength(3)
+    expect(capped.out).toContain('... 22 more (25 total), raise --limit')
+  })
+
+  it('answers in JSON for a caller joining the matches against something else', async () => {
+    baseProject()
+    const { out, code } = await run(['search', 'Sign in', '--json'])
+    expect(code).toBe(0)
+
+    const answer = JSON.parse(out)
+    expect(answer.locales).toEqual(['en', 'de'])
+    expect(answer.results).toHaveLength(1)
+    expect(answer.results[0]).toMatchObject({ text: 'Sign in', key: null, total: 1 })
+    expect(answer.results[0].matches[0]).toEqual({
+      ns: null,
+      keypath: 'login.title',
+      values: { en: 'Sign in', de: 'Anmelden' },
+    })
+  })
+
+  it('takes a key list on stdin, for a caller holding keys grepped out of the source', async () => {
+    baseProject()
+    const { out } = await run(['search', '--key', '-', '--json'], 'login.title\nlogin.ok\n')
+
+    const [result] = JSON.parse(out).results
+    expect(result.total).toBe(2)
+    expect(result.matches.map((match: { keypath: string }) => match.keypath)).toEqual(['login.ok', 'login.title'])
+  })
+
+  it('refuses an empty key list rather than searching for nothing', async () => {
+    baseProject()
+    const { err, code } = await run(['search', '--key', '-'], '\n  \n')
+    expect(code).toBe(1)
+    expect(err).toContain('got nothing on stdin')
+  })
+
+  it('reads --key against bare keypaths, with --ns the only way to name a namespace', async () => {
     namespacedProject()
-    const narrowed = await run(['search', 'login.title', '--keys', '--ns', 'admin'])
+    const narrowed = await run(['search', '--key', 'login.title', '--ns', 'admin'])
     expect(narrowed.out).toContain('admin:login.title')
     expect(narrowed.out).not.toContain('auth:login.title')
 
-    const spelled = await run(['search', 'admin:login.title', '--keys'])
+    const spelled = await run(['search', '--key', 'admin:login.title'])
     expect(spelled.code).toBe(1)
     expect(spelled.err).toContain('spells a namespace into the key')
   })
@@ -173,22 +235,24 @@ describe('upsert-message', () => {
     baseProject()
     const { out, code } = await run(['upsert-message'], '{"login.sub":{"en":"Welcome","de":"Willkommen"}}')
     expect(code).toBe(0)
-    expect(out).toContain('wrote: login.sub')
+    expect(out).toContain('wrote 1 key')
     expect(en().login.sub).toBe('Welcome')
     expect(de().login.sub).toBe('Willkommen')
   })
 
-  it('shows the styleguide and writes nothing until the values are confirmed against it', async () => {
+  it('points at the rules and writes nothing until the values are confirmed against them', async () => {
     baseProject(STYLEGUIDED)
     const values = '{"login.sub":{"en":"Welcome","de":"Willkommen"}}'
 
     const first = await run(['upsert-message'], values)
     expect(first.out).toContain('[nothing written yet]')
-    expect(first.out).toContain('Keep every label under 25 characters')
+    expect(first.out).toContain('loccy-tool styleguide')
+    // The rules live in that command, so a refusal never reprints them.
+    expect(first.out).not.toContain('Keep every label under 25 characters')
     expect(en().login.sub).toBeUndefined()
 
-    const second = await run(['upsert-message', '--styleguided', tokenFrom(first.out)], values)
-    expect(second.out).toContain('wrote: login.sub')
+    const second = await run(['upsert-message', '--styleguided', tokenFrom((await run(['styleguide'])).out)], values)
+    expect(second.out).toContain('wrote 1 key')
     expect(en().login.sub).toBe('Welcome')
     expect(de().login.sub).toBe('Willkommen')
   })
@@ -196,7 +260,7 @@ describe('upsert-message', () => {
   it('refuses a token issued against a styleguide that has since changed', async () => {
     baseProject(STYLEGUIDED)
     const values = '{"login.sub":{"en":"Welcome","de":"Willkommen"}}'
-    const stale = tokenFrom((await run(['upsert-message'], values)).out)
+    const stale = tokenFrom((await run(['styleguide'])).out)
 
     writeProjectFile('loccy.yaml', `${STYLEGUIDED}    - term: Mittens\n`)
 
@@ -204,9 +268,9 @@ describe('upsert-message', () => {
     expect(after.out).toContain(`token ${stale} does not match this project's styleguide`)
     expect(en().login.sub).toBeUndefined()
 
-    // The rules it just reprinted carry the token that does work.
-    const retry = await run(['upsert-message', '--styleguided', tokenFrom(after.out)], values)
-    expect(retry.out).toContain('wrote: login.sub')
+    // The rules as they now stand carry the token that does work.
+    const retry = await run(['upsert-message', '--styleguided', tokenFrom((await run(['styleguide'])).out)], values)
+    expect(retry.out).toContain('wrote 1 key')
   })
 
   it('refuses a token that was never issued, rather than taking the word for it', async () => {
@@ -252,7 +316,7 @@ describe('upsert-message', () => {
     expect(warned.out).toContain('"Loccy" must stay verbatim')
     expect(en().login.sub).toBeUndefined()
 
-    const written = await run(['upsert-message', '--styleguided', tokenFrom(warned.out)], batch)
+    const written = await run(['upsert-message', '--styleguided', tokenFrom((await run(['styleguide'])).out)], batch)
     expect(written.code).toBe(0)
     expect(en().login.sub).toBe('Loccy signs you in')
   })
@@ -263,8 +327,7 @@ describe('upsert-message', () => {
       ['upsert-message'],
       '{"login.sub":{"en":"Welcome","de":"Willkommen"},"login.hint":{"en":"Try again","de":"Nochmal"}}',
     )
-    expect(out).toContain('wrote: login.sub')
-    expect(out).toContain('wrote: login.hint')
+    expect(out).toContain('wrote 2 keys')
     expect(en().login).toMatchObject({ sub: 'Welcome', hint: 'Try again' })
     expect(de().login).toMatchObject({ sub: 'Willkommen', hint: 'Nochmal' })
   })
@@ -294,6 +357,34 @@ describe('upsert-message', () => {
     expect(de().login.sub).toBeUndefined()
   })
 
+  // Placeholders and shared terms read the same in every language, so two locales matching is only
+  // ever a copy where one of them is configured to inherit from the other.
+  it('takes matching text across separate languages as nothing to report', async () => {
+    baseProject()
+    const { out, code } = await run(['upsert-message'], '{"login.n":{"en":"{n} files","de":"{n} files"}}')
+    expect(code).toBe(0)
+    expect(out).toContain('wrote 1 key')
+    expect(out).not.toContain('warning')
+  })
+
+  it('refuses a partial-override locale that repeats the locale it extends', async () => {
+    baseProject(`${CONFIG}
+styleguide:
+  localeRules:
+    de-AT:
+      extends: de
+`)
+    writeProjectFile('locales/de-AT.json', JSON.stringify({ login: { ok: 'Weiter' } }))
+
+    const { err, code } = await run(
+      ['upsert-message'],
+      '{"login.sub":{"en":"Welcome","de":"Willkommen","de-AT":"Willkommen"}}',
+    )
+    expect(code).toBe(1)
+    expect(err).toContain('de-AT is a partial override of de and repeats it')
+    expect(en().login.sub).toBeUndefined()
+  })
+
   it('answers an empty call with the locale skeleton a key needs', async () => {
     baseProject()
     const { out, code } = await run(['upsert-message'])
@@ -303,34 +394,16 @@ describe('upsert-message', () => {
 })
 
 describe('remove-message', () => {
-  it('refuses while the source still references the key, and says where', async () => {
+  it('removes a key the source still calls, since nothing here reads the source', async () => {
     baseProject()
-    const { err, code } = await run(['remove-message', 'login.title'])
-    expect(code).toBe(1)
-    expect(err).toContain('src/app.ts:1')
-    expect(en().login.title).toBe('Sign in')
-  })
-
-  it('removes a referenced key under --force, saying so', async () => {
-    baseProject()
-    const { out, code } = await run(['remove-message', 'login.title', '--force'])
+    const { code } = await run(['remove-message', 'login.title'])
     expect(code).toBe(0)
-    expect(out).toContain('removing anyway (--force)')
     expect(en().login.title).toBeUndefined()
-  })
-
-  it('refuses when the usage scan could not run, since that is not a clean bill of health', async () => {
-    baseProject(UNSCANNABLE)
-    const { err, code } = await run(['remove-message', 'login.title'])
-    expect(code).toBe(1)
-    expect(err).toContain('cannot be confirmed unreferenced')
-    expect(err).toContain('usage not scanned')
-    expect(en().login.title).toBe('Sign in')
   })
 
   it('removes several keys in one call, pruning the branch they leave empty', async () => {
     baseProject()
-    const { code } = await run(['remove-message', 'login.title', 'login.ok', '--force'])
+    const { code } = await run(['remove-message', 'login.title', 'login.ok'])
     expect(code).toBe(0)
     expect(en()).toEqual({})
     expect(de()).toEqual({})
@@ -346,14 +419,15 @@ describe('remove-message', () => {
 })
 
 describe('rename-key', () => {
-  it('renames across locale files and rewrites the call site', async () => {
+  it('renames across locale files, leaving the call site to the caller', async () => {
     baseProject()
     const { out, code } = await run(['rename-key'], '{"login.title":"login.heading"}')
     expect(code).toBe(0)
     expect(out).toContain('renamed: login.title -> login.heading')
     expect(en().login.heading).toBe('Sign in')
     expect(de().login.heading).toBe('Anmelden')
-    expect(readProjectFile('src/app.ts')).toContain("t('login.heading')")
+
+    expect(source()).toBe("t('login.title')\n")
   })
 
   it('renames a batch from stdin', async () => {
@@ -362,7 +436,6 @@ describe('rename-key', () => {
     expect(code).toBe(0)
     expect(en().login).toEqual({ heading: 'Sign in', confirm: 'Continue' })
     expect(de().login).toEqual({ heading: 'Anmelden', confirm: 'Weiter' })
-    expect(source()).toContain("t('login.heading')")
   })
 
   it('refuses a key that does not exist, before touching anything', async () => {
@@ -389,15 +462,13 @@ describe('rename-key', () => {
     expect(en().login).toEqual({ title: 'Sign in', ok: 'Continue' })
   })
 
-  it('rewrites only the key it was given, not one that merely starts the same way', async () => {
+  it('renames only the key it was given, not one that merely starts the same way', async () => {
     baseProject()
-    writeProjectFile('src/app.ts', "t('login.title') + t('login.titlebar')\n")
     await run(['upsert-message'], '{"login.titlebar":{"en":"Bar","de":"Leiste"}}')
 
     const { code } = await run(['rename-key'], '{"login.title":"login.heading"}')
     expect(code).toBe(0)
-    expect(source()).toBe("t('login.heading') + t('login.titlebar')\n")
-    expect(en().login.titlebar).toBe('Bar')
+    expect(en().login).toEqual({ heading: 'Sign in', ok: 'Continue', titlebar: 'Bar' })
   })
 
   it('asks for the batch rather than guessing at an empty call', async () => {
@@ -414,7 +485,6 @@ describe('rename-key', () => {
     expect(code).toBe(0)
     expect(out).toContain('renamed: ok -> ok2')
     expect(en()).toEqual({ title2: 'Sign in', ok2: 'Continue', hint: 'see @:title2 and @:ok2' })
-    expect(source()).toBe("t('title2')\nt('ok2')\n")
   })
 
   it('lets a key deepen into a group, since the rename is what frees the keypath', async () => {

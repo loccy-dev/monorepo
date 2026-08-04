@@ -28,33 +28,6 @@ function rewriteLinkedRefs(
 }
 
 /**
- * Files holding a linked-message reference to `keypath`. A dangling reference renders as raw markup
- * once the key is gone, so a delete has to answer for these the way it answers for source usages.
- */
-export function findLinkedRefsInContents(
-  contents: Map<string, string>,
-  localeMap: Map<string, { locale: Locale; namespace: Namespace }>,
-  framework: string,
-  keypath: string,
-  ns: Namespace,
-): string[] {
-  const utils = getFramework(framework)?.ideInsert?.linkedMessageUtils
-  if (!utils) {
-    return []
-  }
-
-  const found: string[] = []
-  for (const [relativePath, content] of contents) {
-    const fileNs = localeMap.get(relativePath)?.namespace
-    if (content.includes(utils.build(keypath, fileNs === ns ? undefined : ns))) {
-      found.push(relativePath)
-    }
-  }
-
-  return found
-}
-
-/**
  * Follow a key rename through the linked-message references in a module's own files, returning only
  * the files whose text changed. A file in the renamed key's own namespace refers to it unqualified,
  * so the reference to look for differs per file.

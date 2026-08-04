@@ -440,7 +440,7 @@ export class ResourceManager {
     this.invalidateCaches()
   }
 
-  // Mutation helpers - return new content for files that need updating
+  // Mutation helpers - return new content for the files a change actually reaches
 
   /**
    * Update several keypaths at once (e.g. a key-locus plural's sibling keys) across locales. Parsers
@@ -471,8 +471,9 @@ export class ResourceManager {
       }
 
       const { parser } = this.fileParsers.get(targetFilePath)!
+      const before = parser.content
       parser.updateValue(keypath, trimmedValue)
-      result.set(targetFilePath, parser.content)
+      if (parser.content !== before) result.set(targetFilePath, parser.content)
     }
 
     if (this.fileParsers.size > fileCountBefore) {
@@ -505,8 +506,9 @@ export class ResourceManager {
 
     for (const [filePath, fileData] of this.fileParsers.entries()) {
       if (fileData.namespace === ns) {
+        const before = fileData.parser.content
         fileData.parser.renameKeypath(oldKeypath, newKeypath)
-        result.set(filePath, fileData.parser.content)
+        if (fileData.parser.content !== before) result.set(filePath, fileData.parser.content)
       }
     }
 

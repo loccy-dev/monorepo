@@ -12,11 +12,25 @@ import {
   type ModuleContext,
   type ModuleOptions,
 } from '../context'
-import { printUsages, scanUsages, type UsageScan } from '../usages'
+import { readStdin } from '../stdin'
 
-const DEFAULT_LIMIT = 10
+/** One filter over one string: the query as a case-insensitive pattern. */
+type Matcher = (haystack: string) => boolean
 
-/** Everything the queries in one call are run against, resolved once. */
+function compile(query: string, what: string): RegExp {
+  try {
+    return new RegExp(query, 'i')
+  } catch (err) {
+    return fail(`error: ${what} is not a valid regular expression: ${err instanceof Error ? err.message : err}`)
+  }
+}
+
+function matcherFor(query: string, what: string): Matcher {
+  const pattern = compile(query, what)
+  return (haystack) => pattern.test(haystack)
+}
+
+/** Everything every query in one call is run against, resolved once. */
 interface Search {
   ctx: ModuleContext
   namespaces: string[]
@@ -25,24 +39,26 @@ interface Search {
   narrowed: boolean
   /** Locales the styleguide declares as partial overrides, where no text of their own is the norm. */
   inheriting: Set<string>
-  /** Match the keypath rather than the text, for a caller who holds a key and not a phrase. */
-  byKey: boolean
-  limit: number
+  /** The keypath filter, which every query in the call is narrowed by. */
+  key: Matcher | null
+  /** Uncapped by default: an audit that silently stops at ten reads as a corpus that holds ten. */
+  limit: number | null
 }
 
-/** Messages whose text, or whose key under `--keys`, holds `query`, each listed once. */
-function matchesFor({ ctx, namespaces, locales, byKey }: Search, query: string): QualifiedKeypath[] {
-  const needle = query.toLowerCase()
+/** Messages the keypath filter and the text query both accept, each listed once. */
+function matchesFor({ ctx, namespaces, locales, key }: Search, text: Matcher | null): QualifiedKeypath[] {
   const matched: QualifiedKeypath[] = []
 
   for (const ns of namespaces) {
     const flatPerLocale = ctx.rm.getFlatTranslationsPerLocale(ns)
     const seen = new Set<string>()
+    // Every locale, since a key can be translated in one and missing in another, and the text a
+    // query looks for can sit in any of them.
     for (const locale of locales) {
       for (const [keypath, value] of Object.entries(flatPerLocale[locale] ?? {})) {
         if (seen.has(keypath)) continue
-        const haystack = byKey ? keypath : value
-        if (!haystack.toLowerCase().includes(needle)) continue
+        if (key && !key(keypath)) continue
+        if (text && !text(value)) continue
         seen.add(keypath)
         matched.push({ ns, keypath })
       }
@@ -52,40 +68,97 @@ function matchesFor({ ctx, namespaces, locales, byKey }: Search, query: string):
   return matched.sort((a, b) => qualifyKey(a.ns, a.keypath).localeCompare(qualifyKey(b.ns, b.keypath)))
 }
 
-function printMatches(search: Search, scan: UsageScan, query: string, matched: QualifiedKeypath[]): void {
-  const { ctx, locales, narrowed, inheriting, byKey, limit } = search
-  const what = byKey ? 'key ' : ''
-  if (!matched.length) return void console.log(`No ${what}matches for "${query}"`)
+/** What each locale says, with the ones inheriting from a parent left out rather than called gaps. */
+function valuesOf({ ctx, locales, inheriting }: Search, { ns, keypath }: QualifiedKeypath): Record<string, string> {
+  const flatPerLocale = ctx.rm.getFlatTranslationsPerLocale(ns)
+  const values: Record<string, string> = {}
+
+  for (const locale of locales) {
+    const value = flatPerLocale[locale]?.[keypath]
+    if (value !== undefined) values[locale] = value
+    else if (!inheriting.has(locale)) values[locale] = ''
+  }
+  return values
+}
+
+function printMatches(search: Search, label: string, matched: QualifiedKeypath[]): void {
+  const { locales, narrowed, limit } = search
+  if (!matched.length) return void console.log(`No matches for ${label}`)
 
   const where = narrowed ? ` in ${locales.join(', ')}` : ''
-  console.log(`${matched.length} ${what}match${s(matched.length, 'es')} for "${query}"${where}\n`)
+  console.log(`${matched.length} match${s(matched.length, 'es')} for ${label}${where}\n`)
 
-  for (const { ns, keypath } of matched.slice(0, limit)) {
-    const flatPerLocale = ctx.rm.getFlatTranslationsPerLocale(ns)
-    console.log(`keypath: ${qualifyKey(ns, keypath)}`)
+  for (const match of matched.slice(0, limit ?? matched.length)) {
+    console.log(`keypath: ${qualifyKey(match.ns, match.keypath)}`)
     console.log('locales:')
-    for (const locale of locales) {
-      const value = flatPerLocale[locale]?.[keypath]
-      // A partial override falling back to what it extends is the design, not a gap to report.
-      if (value === undefined && inheriting.has(locale)) continue
-      console.log(`  ${locale}: ${value ?? '(missing)'}`)
+    for (const [locale, value] of Object.entries(valuesOf(search, match))) {
+      console.log(`  ${locale}: ${value || '(missing)'}`)
     }
-    printUsages(scan, ns, keypath)
     console.log('')
   }
 
-  const truncated = truncationLine(matched.length, limit, '--limit')
+  const truncated = limit === null ? null : truncationLine(matched.length, limit, '--limit')
   if (truncated) console.log(truncated)
 }
 
+/** What a block of results says it was searched for, since a call can narrow by key, by text, or both. */
+function labelFor(keyQuery: string | undefined, text: string | undefined): string {
+  return [text && `"${text}"`, keyQuery && `keys matching "${keyQuery}"`].filter(Boolean).join(' and ')
+}
+
 /**
- * Substring search, one block per query, over translated text or, under `--keys`, over keypaths.
- * One or the other, since a word like "delete" names a handful of messages by their text and half
- * the corpus by its keypaths.
+ * The whole call as one document, for a caller joining these matches against something else. Every
+ * block the text form prints is here, so the two never answer differently.
+ */
+function printJson(search: Search, blocks: { text?: string; key?: string; matched: QualifiedKeypath[] }[]): void {
+  console.log(
+    JSON.stringify(
+      {
+        locales: search.locales,
+        results: blocks.map(({ text, key, matched }) => ({
+          text: text ?? null,
+          key: key ?? null,
+          total: matched.length,
+          matches: matched.slice(0, search.limit ?? matched.length).map((match) => ({
+            ns: match.ns === NS_WITHOUT_NS ? null : match.ns,
+            keypath: match.keypath,
+            values: valuesOf(search, match),
+          })),
+        })),
+      },
+      null,
+      2,
+    ),
+  )
+}
+
+/** `--key -`: exact keypaths piped in, for a caller holding a key list rather than a pattern. */
+async function keySetMatcher(): Promise<Matcher> {
+  const keys = new Set(
+    (await readStdin())
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean),
+  )
+  if (!keys.size) fail('error: --key - got nothing on stdin', '  pipe the keypaths in, one per line')
+  keys.forEach(failOnNamespacedKey)
+  return (keypath) => keys.has(keypath)
+}
+
+/**
+ * Search the corpus by text, by keypath, or by both at once. Every query is a regular expression,
+ * so a malformed one is an error rather than a silent empty result, and a phrase to match literally
+ * is the same query with its pattern characters escaped.
  */
 export async function searchCommand(
   queries: string[],
-  options: ModuleOptions & { locale?: string; limit?: string; ns?: string; keys?: boolean },
+  options: ModuleOptions & {
+    locale?: string
+    limit?: string
+    ns?: string
+    key?: string
+    json?: boolean
+  },
 ): Promise<void> {
   const ctx = await loadModuleContext(options)
 
@@ -94,7 +167,11 @@ export async function searchCommand(
     fail(`Namespace "${options.ns}" not found. Available: ${namespaces.join(', ') || 'none'}`)
   }
 
-  if (options.keys) queries.forEach(failOnNamespacedKey)
+  if (!queries.length && !options.key) {
+    fail('error: nothing to search for', '  pass text to match, or --key <pattern> to match the keypath, or both')
+  }
+  const fromStdin = options.key === '-'
+  if (options.key && !fromStdin) failOnNamespacedKey(options.key)
 
   const search: Search = {
     ctx,
@@ -103,20 +180,22 @@ export async function searchCommand(
     locales: options.locale ? [requireLocale(ctx, options.locale)] : ctx.rm.allLocales,
     narrowed: Boolean(options.locale),
     inheriting: new Set(partialOverridesOf(ctx.config.styleguide?.localeRules).map((override) => override.locale)),
-    byKey: Boolean(options.keys),
-    limit: requireCount(options.limit, '--limit', DEFAULT_LIMIT),
+    key: fromStdin ? await keySetMatcher() : options.key ? matcherFor(options.key, `--key "${options.key}"`) : null,
+    limit: options.limit === undefined ? null : requireCount(options.limit, '--limit', 0),
   }
 
-  const results = queries.map((query) => ({ query, matched: matchesFor(search, query) }))
+  // A call with no text is the keypath filter on its own, which is one block rather than none.
+  const texts: (string | undefined)[] = queries.length ? queries : [undefined]
+  const blocks = texts.map((text) => ({
+    text,
+    key: fromStdin ? 'the keys on stdin' : options.key,
+    matched: matchesFor(search, text === undefined ? null : matcherFor(text, `"${text}"`)),
+  }))
 
-  // One scan covering every key about to be printed: reading the source is the expensive half, and
-  // two queries landing on the same message must not pay for it twice.
-  const shown = results.flatMap((result) => result.matched.slice(0, search.limit))
-  const keys = [...new Map(shown.map((key) => [qualifyKey(key.ns, key.keypath), key])).values()]
-  const scan = await scanUsages(ctx, keys)
+  if (options.json) return printJson(search, blocks)
 
-  results.forEach(({ query, matched }, index) => {
+  blocks.forEach(({ text, key, matched }, index) => {
     if (index) console.log('')
-    printMatches(search, scan, query, matched)
+    printMatches(search, labelFor(key, text), matched)
   })
 }

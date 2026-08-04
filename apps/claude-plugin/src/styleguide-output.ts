@@ -64,7 +64,7 @@ function printWritingRules(config: LoccyConfig, targetLocales: string[]): void {
  * target locales already had its rule printed with the writing rules, so repeating it here would
  * only say the same thing twice.
  */
-export function printInheritedOverrides(config: LoccyConfig, allLocales: string[], targetLocales: string[]): void {
+function printInheritedOverrides(config: LoccyConfig, allLocales: string[], targetLocales: string[]): void {
   const omitted = partialOverridesOf(config.styleguide?.localeRules).filter(
     (override) => allLocales.includes(override.locale) && !targetLocales.includes(override.locale),
   )
@@ -84,12 +84,8 @@ export function printInheritedOverrides(config: LoccyConfig, allLocales: string[
 }
 
 /**
- * The styleguide as one write is checked against it. Each field prints under its own heading, and
- * `targetLocales` narrows it to the locales that write touches, with overrides outside it reported
- * as inherited: rules for locales nobody is writing are noise at the moment of writing.
- *
- * Scoped, so lossy by design. The whole styleguide, every field and every locale, is what the
- * `styleguide` command prints.
+ * The styleguide as one write is checked against it: narrowed to `targetLocales`, with overrides
+ * outside them reported as inherited. Lossy by design; the `styleguide` command prints it whole.
  */
 export function printStyleguide(config: LoccyConfig, allLocales: string[], targetLocales: string[]): void {
   console.log('## keys\n')
@@ -113,13 +109,8 @@ function stableStringify(value: unknown): string {
 }
 
 /**
- * The confirmation a write has to carry, derived from the styleguide itself rather than being a
- * word to know. Two things follow: it cannot be guessed or remembered from another project, and it
- * stops matching the moment the rules change, so a write can never certify rules nobody was shown.
- *
- * The whole styleguide is hashed, not the locales a given command printed: every command that shows
- * the rules issues the same token, and scoping it per locale would only make one command's token
- * fail against another's for no gain.
+ * The confirmation a write has to carry, hashed from the whole styleguide: unguessable, shared by
+ * every command that prints the rules, and dead the moment they change.
  */
 export function styleguideToken(config: LoccyConfig): string {
   return createHash('sha256')
@@ -134,13 +125,14 @@ export function styleguidedFlag(config: LoccyConfig): string {
 }
 
 /**
- * The one place the confirmation is named, and always after the rules above it: it certifies they
- * were read, so it may never appear before them. Every path that prints the styleguide ends here,
- * which is what keeps that true.
+ * The one place the confirmation is named. It certifies the rules were read, so it may only ever
+ * follow them: every path that prints the styleguide ends here, which is what keeps that true.
  */
 export function printHandshake(howToRun: string, note?: string): void {
   console.log(`\n## Writing against these rules\n\n${howToRun}\n`)
-  console.log('The token above says the values were checked against the rules printed with it. It is derived from')
-  console.log('those rules, so it stops working the moment they change, and it is never worth passing unread.')
+  console.log('The token above says these rules were read. It is derived from them, not issued per write, so the')
+  console.log(
+    'same token confirms every write until the rules change. Once you read the full styleguide, pass it always.',
+  )
   if (note) console.log(note)
 }

@@ -4,8 +4,11 @@ import { NS_WITHOUT_NS } from '@repo/shared/core/helpers/namespace.helpers'
 import { readConfigFile } from '@repo/shared/core/loccy-config/loccy-config'
 import { createResourceManager } from '@repo/shared/core/resources/resource-manager'
 import { renderModule } from '@repo/shared/core/loccy-config/config-templates'
+import { collapsePaths } from '../file-list'
 import { droppedStyleguideNote } from '../styleguide-output'
 import { workflow } from '../tool-commands'
+
+const MAX_FILES_LISTED = 20
 
 /**
  * The config as `loccy.yaml` holds it, then the locales and namespaces the translation files
@@ -29,6 +32,11 @@ async function describeSetup(
 
     const locales = rm?.allLocales ?? []
     if (locales.length) detected.push(`${prefix}locales: ${locales.join(', ')}`)
+
+    // By name, since this list is the scope of every command and a glob is not one. Capped only so
+    // a project with a file per locale-namespace pair cannot bury the rest of the briefing.
+    const files = [...(rm?.getFileLocaleMap().keys() ?? [])]
+    if (files.length) detected.push(`${prefix}translation files: ${collapsePaths(files, MAX_FILES_LISTED)}`)
 
     // Stated either way: "no namespaces" is the fact that stops a key being qualified with one.
     const namespaces = (rm?.namespaces ?? []).filter((ns) => ns !== NS_WITHOUT_NS)

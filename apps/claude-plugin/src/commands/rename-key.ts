@@ -1,7 +1,5 @@
 import { qualifyKey } from '@repo/shared/core/helpers/namespace.helpers'
 import { rewriteLinkedRefsInContents } from '@repo/shared/core/resources/linked-refs'
-import { rewriteUsagesInSource, type UsageRename } from '@repo/shared/core/usages/rename-usage'
-import type { KeypathUsage } from '@repo/shared/core/usages/find-usages'
 import {
   fail,
   loadModuleContext,
@@ -12,7 +10,7 @@ import {
 } from '../context'
 import { failOnStructuralCollision } from '../keypath-guards'
 import { readStdin } from '../stdin'
-import { scanUsages, type UsageScan } from '../usages'
+import { collapsePaths } from '../file-list'
 import { writeAllOrNothing } from '../write'
 
 /** One rename: the key as it stands and the key it becomes, always in the same namespace. */
@@ -92,10 +90,7 @@ function failOnOccupiedTargets(ctx: ModuleContext, renames: Rename[]): void {
   if (problems.length) fail(...problems)
 }
 
-/**
- * Rename keys across every locale file, then rewrite the static `t('old.key')` call sites.
- * Keys built at runtime can't be matched reliably, so those are reported for a manual recheck.
- */
+/** Rename keys across every locale file, following the linked references between messages. */
 export async function renameKeyCommand(options: KeyOptions): Promise<void> {
   const raw = await readStdin()
   const ctx = await loadModuleContext(options)
@@ -107,12 +102,6 @@ export async function renameKeyCommand(options: KeyOptions): Promise<void> {
     ns,
     renames.map(({ to }) => to),
     renames.map(({ from }) => from),
-  )
-
-  // Collected before the rename, while the call sites still spell the old keys.
-  const scan = await scanUsages(
-    ctx,
-    renames.map(({ ns, from }) => ({ ns, keypath: from })),
   )
 
   const changed = new Map<string, string>()
@@ -138,73 +127,11 @@ export async function renameKeyCommand(options: KeyOptions): Promise<void> {
     }
   }
 
-  const sources = scan.ok ? await rewriteCallSites(ctx, scan, renames) : new Map<string, string>()
-  for (const [filePath, content] of sources) changed.set(filePath, content)
-
   await writeAllOrNothing(ctx.platform, changed)
 
   for (const { ns, from, to } of renames) {
     console.log(`renamed: ${qualifyKey(ns, from)} -> ${qualifyKey(ns, to)}`)
   }
-  console.log(`files: ${[...changed.keys()].join(', ')}`)
-  if (linked.size) console.log(`linked references rewritten in: ${[...linked.keys()].join(', ')}`)
-
-  reportCallSites(scan, renames, sources)
-}
-
-/** New content for every source file holding a static call site of a renamed key. */
-async function rewriteCallSites(
-  ctx: ModuleContext,
-  scan: UsageScan & { ok: true },
-  renames: Rename[],
-): Promise<Map<string, string>> {
-  const perFile = new Map<string, UsageRename[]>()
-
-  for (const { ns, from, to } of renames) {
-    const usages = scan.usages.get(qualifyKey(ns, from)) ?? []
-    for (const usage of usages) {
-      if (usage.dynamic) continue
-      const forFile = perFile.get(usage.file) ?? []
-      const existing = forFile.find((rename) => rename.newKeypath === to)
-      if (existing) existing.usages.push(usage.info)
-      else forFile.push({ usages: [usage.info], newKeypath: to })
-      perFile.set(usage.file, forFile)
-    }
-  }
-
-  const rewritten = new Map<string, string>()
-  for (const [file, renamesInFile] of perFile) {
-    rewritten.set(file, rewriteUsagesInSource(await ctx.platform.readFile(file), renamesInFile))
-  }
-  return rewritten
-}
-
-/** What happened to the call sites, including the ones no scan can speak for. */
-function reportCallSites(scan: UsageScan, renames: Rename[], rewritten: Map<string, string>): void {
-  if (!scan.ok) {
-    console.log(`\ncall sites: ${scan.reason}`)
-    console.log(`  ${scan.hint}`)
-    console.log('  nothing in the source was rewritten, so every reference to the old keys needs updating by hand')
-    return
-  }
-
-  if (rewritten.size) console.log(`\nrewritten usages in: ${[...rewritten.keys()].join(', ')}`)
-
-  const dynamic = renames.flatMap(({ ns, from }) =>
-    (scan.usages.get(qualifyKey(ns, from)) ?? [])
-      .filter((usage: KeypathUsage) => usage.dynamic)
-      .map((usage) => `  ${qualifyKey(ns, from)}: ${usage.file}:${usage.line}`),
-  )
-  if (dynamic.length) {
-    console.log('\ndynamic usages (built at runtime, not rewritten, recheck manually):')
-    for (const location of dynamic) console.log(location)
-  }
-
-  // Raised whether or not the scan matched anything: a key assembled from pieces never matches,
-  // so "none found" is exactly the case where a stale reference survives the rename.
-  console.log(
-    `\nreminder: a key built at runtime cannot be matched by the scanner, so a reference to ${renames
-      .map(({ from }) => `"${from}"`)
-      .join(', ')} may still be assembled somewhere in the source. Grep for its segments before calling this done.`,
-  )
+  console.log(`files: ${collapsePaths([...changed.keys()])}`)
+  if (linked.size) console.log(`linked references rewritten in: ${collapsePaths([...linked.keys()])}`)
 }
