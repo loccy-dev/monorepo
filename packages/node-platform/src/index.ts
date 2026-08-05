@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { globby } from 'globby'
-import { DEFAULT_IGNORE_GLOBS, type Platform } from '@repo/types/platform.types'
+import { DEFAULT_IGNORE_GLOBS, type FindFilesOptions, type Platform } from '@repo/types/platform.types'
 
 export function createNodePlatform(rootPath: string): Platform {
   return {
@@ -30,11 +30,11 @@ export function createNodePlatform(rootPath: string): Platform {
       }
     },
 
-    async findFiles(patterns: string[], exclude?: string[]): Promise<string[]> {
+    async findFiles(patterns: string[], exclude?: string[], options?: FindFilesOptions): Promise<string[]> {
       return globby(patterns, {
         cwd: rootPath,
         ignore: [...DEFAULT_IGNORE_GLOBS, ...(exclude ?? [])],
-        gitignore: true,
+        gitignore: options?.respectGitignore ?? false,
         absolute: false,
         onlyFiles: true,
         dot: true,

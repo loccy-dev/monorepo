@@ -46,7 +46,9 @@ export class UsageScanner {
   }
 
   async scan(): Promise<ScanResult> {
-    const files = await this.platform.findFiles(this.options.includePatterns, this.options.excludePatterns)
+    const files = await this.platform.findFiles(this.options.includePatterns, this.options.excludePatterns, {
+      respectGitignore: true,
+    })
     const perFile = new Map<string, KeypathInfo[]>()
     const usedKeyDirectives: ScanResult['usedKeyDirectives'] = []
 

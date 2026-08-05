@@ -8,18 +8,6 @@ export function primaryLocales(allLocales: string[], styleguide: StyleguideConfi
   return allLocales.filter((locale) => !overrides.has(locale))
 }
 
-/**
- * Primary locales `values` says nothing about, which would leave the key untranslated for them.
- * Key presence decides, not the text: an explicit empty string is a deliberate delete, not a gap.
- */
-export function findMissingPrimaryLocales(
-  values: LocalizedText,
-  allLocales: string[],
-  styleguide: StyleguideConfig | undefined,
-): string[] {
-  return primaryLocales(allLocales, styleguide).filter((locale) => !(locale in values))
-}
-
 export interface RedundantOverride {
   locale: string
   extends: string

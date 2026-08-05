@@ -1,10 +1,6 @@
 import type { LocalizedText } from '@repo/types/primitives.types'
 import { loccyConfigFilename } from '@repo/types/config.types'
-import {
-  findMissingPrimaryLocales,
-  findRedundantOverrides,
-  primaryLocales,
-} from '@repo/shared/core/loccy-config/regional-override-guards'
+import { findRedundantOverrides, primaryLocales } from '@repo/shared/core/loccy-config/regional-override-guards'
 import {
   checkDoNotTranslate,
   checkGlossary,
@@ -22,13 +18,7 @@ import {
 } from '../context'
 import { collapsePaths } from '../file-list'
 import { failOnStructuralCollision } from '../keypath-guards'
-import {
-  hasStyleguideRules,
-  printHandshake,
-  printStyleguide,
-  styleguidedFlag,
-  styleguideToken,
-} from '../styleguide-output'
+import { hasStyleguideRules, styleguideToken } from '../styleguide-output'
 import { readStdin } from '../stdin'
 import { writeAllOrNothing } from '../write'
 
@@ -106,15 +96,6 @@ function enforceGuards(ctx: ModuleContext, entries: Entry[]): void {
     const key = qualifyKey(ns, keypath)
     const stored = (locale: string): string | undefined => ctx.rm.getFlatTranslationsPerLocale(ns)[locale]?.[keypath]
 
-    const missing = findMissingPrimaryLocales(values, ctx.rm.allLocales, styleguide)
-    if (missing.length) {
-      problems.push(
-        `error: ${key} says nothing about primary locale(s): ${missing.join(', ')}`,
-        `  this key needs all of: ${primaryLocales(ctx.rm.allLocales, styleguide).join(', ')}, and upsert-message writes exactly the locales you pass`,
-        '  give each one text, or "" to delete the key from that locale',
-      )
-    }
-
     for (const { locale, extends: parent, value } of findRedundantOverrides(values, styleguide, stored)) {
       problems.push(
         `error: ${key}: ${locale} is a partial override of ${parent} and repeats it: "${value}"`,
@@ -166,27 +147,61 @@ function printStyleguideReview(ctx: ModuleContext, entries: Entry[]): void {
   console.log('then rerun with --styleguided <token>.')
 }
 
-/**
- * What to send, for a caller that has none of it yet: the exact locale set a key needs, as a
- * skeleton to fill, plus the styleguide those values have to satisfy. The locale set is never
- * guessable from a directory listing, so asking for it beats failing on it.
- */
-function printTemplate(ctx: ModuleContext): void {
-  const required = primaryLocales(ctx.rm.allLocales, ctx.config.styleguide)
-  const skeleton = Object.fromEntries(required.map((locale) => [locale, '']))
-
-  console.log(`upsert-message needs every primary locale of "${ctx.module.name}" in one call, as JSON on stdin:\n`)
-  console.log(`  ${JSON.stringify({ 'login.title': skeleton })}\n`)
-  console.log('Text writes the value. "" deletes the key from that locale file, which is how one locale')
-  console.log('drops back to its fallback while the others keep the key.\n')
-
-  printStyleguide(ctx.config, ctx.rm.allLocales, required)
-
-  const batch = JSON.stringify({ 'login.title': skeleton, 'login.subtitle': skeleton })
-  printHandshake(`  loccy-tool upsert-message ${styleguidedFlag(ctx.config)} <<'EOF'\n  ${batch}\n  EOF`)
+/** Every line of a rule sits under its locale, so a rule of any length stays one visual block. */
+function indented(text: string): string {
+  return text
+    .trim()
+    .split('\n')
+    .map((line) => `    ${line}`)
+    .join('\n')
 }
 
-/** Add or update keys across locale files. Prints the styleguide and writes nothing until confirmed. */
+function printSection(title: string, blocks: string[]): void {
+  if (!blocks.length) return
+
+  console.log(`\n${title}\n`)
+  console.log(blocks.join('\n\n'))
+}
+
+/** Every locale that has a rule. Overrides stand apart: what they say is a deviation, not a style. */
+function printLocaleRules(ctx: ModuleContext): void {
+  const rules = ctx.config.styleguide?.localeRules ?? {}
+  const prose: string[] = []
+  const overrides: string[] = []
+
+  for (const locale of ctx.rm.allLocales) {
+    const rule = rules[locale]
+    if (rule === undefined) continue
+
+    if (typeof rule === 'string') {
+      if (rule.trim()) prose.push(`  ${locale}\n${indented(rule)}`)
+      continue
+    }
+    overrides.push(`  ${locale} extends ${rule.extends}\n${indented(rule.style || 'no deviation documented')}`)
+  }
+
+  printSection('Locale rules:', prose)
+  printSection('Partial overrides, each inheriting unless its text deviates:', overrides)
+}
+
+/**
+ * The locale set, which a directory listing does not give away, in the three shapes a write takes:
+ * one locale, the ones that each carry their own value, and every locale there is.
+ */
+function printTemplate(ctx: ModuleContext): void {
+  const primary = primaryLocales(ctx.rm.allLocales, ctx.config.styleguide)
+  const skeleton = (locales: string[]): string =>
+    JSON.stringify({ 'login.title': Object.fromEntries(locales.map((locale) => [locale, ''])) })
+
+  console.log(`Values for "${ctx.module.name}" go in as JSON on stdin, every key you are changing in one call:\n`)
+  console.log(`  one locale:      ${skeleton([primary.at(-1) ?? ctx.rm.allLocales[0]!])}`)
+  console.log(`  primary locales: ${skeleton(primary)}`)
+  if (primary.length < ctx.rm.allLocales.length) console.log(`  all locales:     ${skeleton(ctx.rm.allLocales)}`)
+
+  printLocaleRules(ctx)
+}
+
+/** Add or update keys across locale files. Points at the styleguide and writes nothing until confirmed. */
 export async function upsertMessageCommand(options: KeyOptions & { styleguided?: string }): Promise<void> {
   const raw = await readStdin()
   const ctx = await loadModuleContext(options)

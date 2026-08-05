@@ -19,7 +19,7 @@ function withModuleOptions(command: Command): Command {
 function withKeyOptions(command: Command): Command {
   return withModuleOptions(command).option(
     '--ns <namespace>',
-    'Namespace the keys belong to (only needed where several hold the same keypath)',
+    'Namespace the keys belong to (only needed if setup is multi-namespaced (e.g. in react-i18next with <locale>/{<ns1>.json, <ns2>.json}) structure)',
   )
 }
 
@@ -114,7 +114,7 @@ export function buildProgram(): Command {
   withKeyOptions(
     program
       .command('upsert-message')
-      .description('Add or update keys across every locale file in one call')
+      .description('Add or update keys across locale files, multiple locales in one call')
       .option(
         '--styleguided <token>',
         'Confirm the rules were read. `loccy-tool styleguide` prints them and the token that goes here',
@@ -122,20 +122,15 @@ export function buildProgram(): Command {
   )
     .addHelpText(
       'after',
-      '\nKeys and values go in as JSON on stdin, so nothing needs shell-escaping. One key or many,\n' +
-        'always keyed by keypath:\n\n' +
+      '\nJSON on stdin, keyed by keypath. Cheapest is one call carrying every key and locale you are\n' +
+        'changing:\n\n' +
         "  loccy-tool upsert-message <<'EOF'\n" +
         '  {"login.title":{"en":"Sign in","de":"Anmelden"},"login.ok":{"en":"Continue","de":"Weiter"}}\n' +
         '  EOF\n\n' +
-        'Run it with no stdin at all to get the exact locale set as a skeleton to fill.\n' +
-        'A namespace goes in --ns, never spelled into the keys.\n\n' +
-        'An empty string deletes the key from that locale file, leaving the others untouched: the way\n' +
-        'to make one locale fall back while the rest keep their own text:\n\n' +
-        '  {"login.ok":{"en":"Continue","de":"Weiter","de-AT":"","de-DE":""}}\n\n' +
-        'Always enforced: every primary locale present in one call, and no partial-override locale\n' +
-        'repeating the locale it extends. Atomic - nothing is written unless every key in the batch can be.\n\n' +
-        'Run `loccy-tool styleguide` before the first call, and pass the token it prints as\n' +
-        '--styleguided from that write on.',
+        'Only the locales you pass are written. "" deletes the key\n' +
+        'from that locale:\n\n' +
+        '  {"login.ok":{"en":"Success","en-US":""}}\n\n' +
+        'Run `loccy-tool styleguide` before the first call and read it in full',
     )
     .action(upsertMessageCommand)
 

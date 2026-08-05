@@ -1,6 +1,6 @@
 {
   "name": "loccy",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Styleguide-aware i18n: search, add, rename and remove translation keys across every locale in one call.",
   "author": {
     "name": "Loccy",

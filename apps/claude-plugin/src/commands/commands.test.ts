@@ -280,12 +280,13 @@ describe('upsert-message', () => {
     expect(en().login.sub).toBeUndefined()
   })
 
-  it('refuses a write that leaves a primary locale untranslated', async () => {
+  it('writes the locales it is given and leaves the rest as they were', async () => {
     baseProject()
-    const { err, code } = await run(['upsert-message'], '{"login.sub":{"en":"Welcome"}}')
-    expect(code).toBe(1)
-    expect(err).toContain('says nothing about primary locale(s): de')
-    expect(en().login.sub).toBeUndefined()
+    const { out, code } = await run(['upsert-message'], '{"login.title":{"de":"Einloggen"}}')
+    expect(code).toBe(0)
+    expect(out).toContain('wrote 1 key')
+    expect(de().login.title).toBe('Einloggen')
+    expect(en().login.title).toBe('Sign in')
   })
 
   it('refuses a locale the project does not have, rather than forking the corpus on a typo', async () => {
@@ -336,10 +337,10 @@ describe('upsert-message', () => {
     baseProject()
     const { err, code } = await run(
       ['upsert-message'],
-      '{"login.sub":{"en":"Welcome","de":"Willkommen"},"login.hint":{"en":"Try again"}}',
+      '{"login.sub":{"en":"Welcome","de":"Willkommen"},"login.hint":{"en":"Try again","fr":"Encore"}}',
     )
     expect(code).toBe(1)
-    expect(err).toContain('login.hint says nothing about primary locale(s): de')
+    expect(err).toContain('locale "fr" is not one of this project')
     expect(en().login.sub).toBeUndefined()
     expect(de().login.sub).toBeUndefined()
   })
@@ -385,11 +386,31 @@ styleguide:
     expect(en().login.sub).toBeUndefined()
   })
 
-  it('answers an empty call with the locale skeleton a key needs', async () => {
-    baseProject()
+  it('answers an empty call with the locale shapes a write takes and every locale rule', async () => {
+    baseProject(`${STYLEGUIDED}  localeRules:
+    de: Formal Sie throughout
+    de-AT:
+      extends: de
+      style: Jänner, not Januar
+`)
+    writeProjectFile('locales/de-AT.json', JSON.stringify({ login: { ok: 'Weiter' } }))
+
     const { out, code } = await run(['upsert-message'])
     expect(code).toBe(0)
-    expect(out).toContain('{"login.title":{"en":"","de":""}}')
+    expect(out).toContain('one locale:      {"login.title":{"de":""}}')
+    expect(out).toContain('primary locales: {"login.title":{"en":"","de":""}}')
+    expect(out).toContain('all locales:     {"login.title":{"en":"","de":"","de-AT":""}}')
+    expect(out).toContain('  de\n    Formal Sie throughout')
+    expect(out).toContain('  de-AT extends de\n    Jänner, not Januar')
+    // The styleguide has one command of its own, so no other prints it.
+    expect(out).not.toContain('Keep every label under 25 characters')
+  })
+
+  it('leaves the all-locales shape out where every locale carries its own value', async () => {
+    baseProject()
+    const { out } = await run(['upsert-message'])
+    expect(out).toContain('primary locales: {"login.title":{"en":"","de":""}}')
+    expect(out).not.toContain('all locales:')
   })
 })
 

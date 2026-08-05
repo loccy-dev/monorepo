@@ -6,6 +6,7 @@ import { buildStyleguidePrompt, localeProse } from './styleguide-prompt'
  * A partial-override binding — `locale` extends `extends` per a natural-language rule. Filled only
  * where the rule deviates, else empty. `extends` is an explicit config pick, not derived from
  * BCP-47 naming.
+ * @lintignore
  */
 export type RegionalOverrideSpec = {
   /** The partial-override locale, e.g. "de-CH". */
@@ -60,6 +61,7 @@ function buildRegionalOverrideSpecs(
  * Styleguide prose + override specs for one AI call, scoped to `targetLocales` (`contextLocales`
  * only widen override visibility). Overrides go out ONLY as structured specs — dropped from
  * the prose — so the caller's override-resolution step owns them exclusively.
+ * @lintignore
  */
 export function resolveLocalizationGuidance(
   styleguide: StyleguideConfig | undefined,
