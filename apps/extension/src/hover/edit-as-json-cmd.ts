@@ -167,6 +167,11 @@ export async function editAsJsonCmd(
 }
 
 export function parseTranslationsInput(text: string): Record<string, string> {
+  // nothing but the header comment left in the editor means an empty object
+  if (!text.replace(/\/\/.*$/gm, '').trim()) {
+    return {}
+  }
+
   const parsed = JSON5.parse<Record<string, string>>(text)
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {

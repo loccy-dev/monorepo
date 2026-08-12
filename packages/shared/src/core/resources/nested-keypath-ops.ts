@@ -33,8 +33,10 @@ export function updateValue(
 ): void {
   if (!newValue) {
     deleteKeypath(data, keypath, structure)
-  } else {
+  } else if (structure === 'nested') {
     set(data, keypath, deserializeValue(newValue))
+  } else {
+    data[keypath] = deserializeValue(newValue)
   }
 }
 
@@ -210,12 +212,32 @@ function renameKeypathWithoutMovement(data: NestedObject, oldKeypath: string, ne
   return result
 }
 
+/** Flat keys are literal, so a rename is plain key substitution — only an existing key of that name blocks it. */
+function renameFlatKeypath(data: NestedObject, oldKeypath: string, newKeypath: string): NestedObject {
+  if (!(oldKeypath in data) || newKeypath in data) {
+    return data
+  }
+
+  return Object.fromEntries(
+    Object.entries(data).map(([k, v]) => {
+      if (k === oldKeypath) {
+        return [newKeypath, v]
+      }
+      return [k, v]
+    }),
+  )
+}
+
 export function renameKeypath(
   data: NestedObject,
   structure: ResourceStructure,
   oldKeypath: string,
   newKeypath: string,
 ): NestedObject {
+  if (structure !== 'nested') {
+    return renameFlatKeypath(data, oldKeypath, newKeypath)
+  }
+
   const keypathExists = get(data, oldKeypath) !== undefined
   if (!keypathExists) {
     return data
@@ -225,25 +247,14 @@ export function renameKeypath(
     return data
   }
 
-  if (structure === 'nested') {
-    if (shouldRenameOnly(data, oldKeypath, newKeypath)) {
-      return renameKeypathWithoutMovement(data, oldKeypath, newKeypath)
-    } else {
-      const val = deleteKeypath(data, oldKeypath, structure)
-      if (!val) {
-        return data
-      }
-      updateValue(data, structure, newKeypath, val)
-      return data
-    }
-  } else {
-    return Object.fromEntries(
-      Object.entries(data).map(([k, v]) => {
-        if (k === oldKeypath) {
-          return [newKeypath, v]
-        }
-        return [k, v]
-      }),
-    )
+  if (shouldRenameOnly(data, oldKeypath, newKeypath)) {
+    return renameKeypathWithoutMovement(data, oldKeypath, newKeypath)
   }
+
+  const val = deleteKeypath(data, oldKeypath, structure)
+  if (!val) {
+    return data
+  }
+  updateValue(data, structure, newKeypath, val)
+  return data
 }
