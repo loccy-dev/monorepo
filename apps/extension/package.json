@@ -255,7 +255,7 @@
     "compile-tests": "node tools/compile-tests.js",
     "pretest": "npm run compile-tests",
     "test": "vscode-test",
-    "flt": "npm run format && npm run lint",
+    "flt": "npm run format && npm run lint && npm run test",
     "check": "rm -rf out && npm run compile && npm run format && npm run lint && npm run test",
     "build-icons": "node tools/build-icons.js"
   },

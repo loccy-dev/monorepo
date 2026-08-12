@@ -115,11 +115,7 @@ export async function editAsJsonCmd(
     saveReason = null
 
     try {
-      const translations = JSON5.parse<Record<string, string>>(savedDoc.getText())
-
-      if (typeof translations !== 'object' || translations === null || Array.isArray(translations)) {
-        throw new Error('Invalid JSON format - must be an object')
-      }
+      const translations = parseTranslationsInput(savedDoc.getText())
 
       let changes: LocalizedText = {}
 
@@ -168,6 +164,16 @@ export async function editAsJsonCmd(
       cleanup(false)
     }
   })
+}
+
+export function parseTranslationsInput(text: string): Record<string, string> {
+  const parsed = JSON5.parse<Record<string, string>>(text)
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Invalid JSON format - must be an object')
+  }
+
+  return parsed
 }
 
 /** Reads auto-save delay from vscode settings; falls back to a safe default on error. */

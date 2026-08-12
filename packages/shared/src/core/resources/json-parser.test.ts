@@ -185,6 +185,25 @@ describe('JsonParser', () => {
       )
     })
 
+    it('structure - flat (renaming to a parent keypath)', () => {
+      const parser = new JsonParser(
+        `{
+  "address.label": "Address",
+  "address.notSet": "Address not set"
+}`,
+        false,
+      )
+
+      parser.renameKeypath('address.label', 'address')
+
+      expect(parser.content).toBe(
+        `{
+  "address": "Address",
+  "address.notSet": "Address not set"
+}`,
+      )
+    })
+
     it('structure - flat deep (keypath removing and not-resorting)', () => {
       const parser = new JsonParser(
         `{
@@ -546,6 +565,30 @@ describe('JsonParser', () => {
   "k2": "v2"
 }`,
       )
+    })
+
+    it('new keypath in a flat file stays flat', () => {
+      const parser = new JsonParser('{"a.b":"x","a.c":"y"}', false)
+      parser.updateValue('a.d', 'z')
+      expect(parser.content).toBe('{"a.b":"x","a.c":"y","a.d":"z"}')
+    })
+
+    it('new top-level keypath in a flat file stays flat', () => {
+      const parser = new JsonParser('{"a.b":"x"}', false)
+      parser.updateValue('c.d.e', 'z')
+      expect(parser.content).toBe('{"a.b":"x","c.d.e":"z"}')
+    })
+
+    it('existing keypath in a flat file stays flat', () => {
+      const parser = new JsonParser('{"a.b":"x","a.c":"y"}', false)
+      parser.updateValue('a.b', 'z')
+      expect(parser.content).toBe('{"a.b":"z","a.c":"y"}')
+    })
+
+    it('new keypath in a nested file stays nested', () => {
+      const parser = new JsonParser('{"a":{"b":"x"}}', false)
+      parser.updateValue('a.c', 'z')
+      expect(parser.content).toBe('{"a":{"b":"x","c":"z"}}')
     })
   })
 
