@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import JSON5 from 'json5'
 import { registerVirtualSystemProvider } from '../helpers/virtual-file-system-provider'
 import type { LocalizedText } from '@repo/types/primitives.types'
 import { reportEvent } from '../telemetry/telemetry'
@@ -114,12 +115,7 @@ export async function editAsJsonCmd(
     saveReason = null
 
     try {
-      const newContent = savedDoc.getText().replace(/^\/\/.*\n?/gm, '') // strip comments
-      const translations = newContent.trim() ? (JSON.parse(newContent) as Record<string, string>) : {}
-
-      if (typeof translations !== 'object' || translations === null) {
-        throw new Error('Invalid JSON format - must be an object')
-      }
+      const translations = parseTranslationsInput(savedDoc.getText())
 
       let changes: LocalizedText = {}
 
@@ -168,6 +164,21 @@ export async function editAsJsonCmd(
       cleanup(false)
     }
   })
+}
+
+export function parseTranslationsInput(text: string): Record<string, string> {
+  // nothing but the header comment left in the editor means an empty object
+  if (!text.replace(/\/\/.*$/gm, '').trim()) {
+    return {}
+  }
+
+  const parsed = JSON5.parse<Record<string, string>>(text)
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Invalid JSON format - must be an object')
+  }
+
+  return parsed
 }
 
 /** Reads auto-save delay from vscode settings; falls back to a safe default on error. */
