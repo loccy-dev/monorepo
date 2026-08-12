@@ -68,6 +68,16 @@
         "category": "Loccy"
       },
       {
+        "command": "loccy.editTranslationAtCursor",
+        "title": "Edit Translation at Cursor...",
+        "category": "Loccy"
+      },
+      {
+        "command": "loccy.renameKeypathAtCursor",
+        "title": "Rename Keypath at Cursor",
+        "category": "Loccy"
+      },
+      {
         "command": "loccy.createConfigFile",
         "title": "Create Config File",
         "category": "Loccy"

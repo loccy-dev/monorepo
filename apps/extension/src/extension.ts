@@ -23,6 +23,7 @@ import { insertExistingMessageCmd } from './commands/insert-existing-message-cmd
 import { TelemetryEvent } from './telemetry/events'
 import { openLocCmd } from './hover/open-loc-cmd'
 import { suggestContextualTranslationCmd } from './commands/suggest-contextual-translation-cmd'
+import { editTranslationAtCursorCmd, renameKeypathAtCursorCmd } from './commands/keypath-at-cursor-cmds'
 import { ReleasesManager } from './helpers/releases-manager'
 import { resourceService } from './helpers/resource-service'
 import { WatcherManager } from './helpers/watcher/watcher-manager'
@@ -193,6 +194,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('loccy.suggestContextualTranslation', () => resourcesGuard() &&  suggestContextualTranslationCmd()),
+  )
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('loccy.renameKeypathAtCursor', () => resourcesGuard() && renameKeypathAtCursorCmd(context)),
+    vscode.commands.registerCommand('loccy.editTranslationAtCursor', () => resourcesGuard() && editTranslationAtCursorCmd(context)),
   )
 
   context.subscriptions.push(
