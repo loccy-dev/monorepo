@@ -1,6 +1,7 @@
 ---
 title: Overview
 description: "Loccy documentation: open-source i18n devtooling for React & Vue web apps."
+updated: '2026-08-02'
 ---
 
 # Loccy documentation

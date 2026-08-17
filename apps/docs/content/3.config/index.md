@@ -1,6 +1,7 @@
 ---
 title: Config
 description: "Reference for loccy.yaml: modules, keys, types, defaults, and translation layout."
+updated: '2026-08-02'
 ---
 
 # Config

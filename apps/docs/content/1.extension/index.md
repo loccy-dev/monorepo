@@ -3,6 +3,7 @@ title: Extension
 navigation:
   title: Overview
 description: "The Loccy VS Code extension: preview, edit, extract, and translate i18n strings inline."
+updated: '2026-08-02'
 ---
 
 # Loccy for VS Code

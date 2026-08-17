@@ -3,6 +3,7 @@ title: Get started
 navigation:
   title: Get started
 description: "Install the Loccy linter and set up loccy.yaml — free, offline, for React & Vue."
+updated: '2026-08-02'
 ---
 
 # Get started
