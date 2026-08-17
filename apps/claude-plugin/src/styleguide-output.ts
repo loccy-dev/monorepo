@@ -9,7 +9,7 @@ export function hasStyleguideRules(config: LoccyConfig): boolean {
     styleguide?.product?.trim() ||
     styleguide?.voice?.trim() ||
     styleguide?.mechanics?.trim() ||
-    styleguide?.localeRules ||
+    Object.keys(styleguide?.localeRules ?? {}).length ||
     styleguide?.doNotTranslate?.length ||
     styleguide?.glossary?.length,
   )

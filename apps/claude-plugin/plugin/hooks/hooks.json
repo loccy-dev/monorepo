@@ -5,7 +5,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool hook-session-start",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool\" hook-session-start",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool\" hook-subagent-start",
             "timeout": 20
           }
         ]
@@ -17,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool hook-pre-edit",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool\" hook-pre-edit",
             "timeout": 15
           }
         ]

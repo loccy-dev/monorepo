@@ -1,6 +1,6 @@
 ---
 name: author-styleguide
-description: Write or extend the `styleguide` in loccy.yaml, the rules every later translation is checked against. Use when the styleguide is empty or still the commented-out scaffold, when asked to write down translation or wording rules, when a project's tone or terminology should be captured, or when the user keeps correcting the same thing in generated copy.
+description: Write or extend the `styleguide` in loccy.yaml, the rules every later translation is checked against. Use when the styleguide is empty or still the commented-out scaffold, when asked to record translation, tone, or terminology rules, or when the user keeps correcting the same thing in generated copy.
 allowed-tools: Bash, WebFetch
 ---
 

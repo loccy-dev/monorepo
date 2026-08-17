@@ -8,7 +8,7 @@ import { upsertMessageCommand } from './commands/upsert-message'
 import { removeMessageCommand } from './commands/remove-message'
 import { renameKeyCommand } from './commands/rename-key'
 import { styleguideCommand, styleguideExampleCommand } from './commands/styleguide'
-import { preEditHook, sessionStartHook } from './commands/hook'
+import { preEditHook, sessionStartHook, subagentStartHook } from './commands/hook'
 import { workflow } from './tool-commands'
 
 function withModuleOptions(command: Command): Command {
@@ -37,6 +37,7 @@ function addHookCommands(program: Command): void {
     argument?: [usage: string, description: string]
   }[] = [
     { name: 'hook-session-start', run: sessionStartHook },
+    { name: 'hook-subagent-start', run: subagentStartHook },
     {
       name: 'hook-pre-edit',
       run: preEditHook,

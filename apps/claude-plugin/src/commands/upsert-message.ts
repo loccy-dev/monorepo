@@ -1,11 +1,8 @@
 import type { LocalizedText } from '@repo/types/primitives.types'
-import { loccyConfigFilename } from '@repo/types/config.types'
+import { loccyConfigFilename, type StyleguideConfig } from '@repo/types/config.types'
+import { renderStyleguideYaml } from '@repo/shared/core/loccy-config/config-templates'
 import { findRedundantOverrides, primaryLocales } from '@repo/shared/core/loccy-config/regional-override-guards'
-import {
-  checkDoNotTranslate,
-  checkGlossary,
-  type ComplianceIssue,
-} from '@repo/shared/utils/styleguide/check-compliance'
+import { checkDoNotTranslate, checkGlossary } from '@repo/shared/utils/styleguide/check-compliance'
 import { s } from '@repo/shared/core/helpers/helpers'
 import { qualifyKey } from '@repo/shared/core/helpers/namespace.helpers'
 import {
@@ -18,13 +15,13 @@ import {
 } from '../context'
 import { collapsePaths } from '../file-list'
 import { failOnStructuralCollision } from '../keypath-guards'
+import { refuseOnce } from '../retry-window'
 import { hasStyleguideRules, styleguideToken } from '../styleguide-output'
 import { readStdin } from '../stdin'
 import { writeAllOrNothing } from '../write'
 
-/** One key's write: where it lands and what every locale is to say. */
+/** One key's write: what every locale is to say. The namespace is the batch's, not the key's. */
 interface Entry {
-  ns: string
   keypath: string
   values: LocalizedText
 }
@@ -73,7 +70,6 @@ function parseEntries(ctx: ModuleContext, raw: string, options: KeyOptions): { n
 
   const ns = resolveNamespace(ctx, options)
   const entries = Object.entries(parsed).map(([entryKey, values]) => ({
-    ns,
     keypath: requireKeypath(entryKey),
     values: parseValues(ctx, entryKey, values),
   }))
@@ -88,11 +84,11 @@ function deletedLocales(values: LocalizedText): string[] {
 }
 
 /** Hard guards. Anything reported here is mechanically wrong, so the whole batch is refused. */
-function enforceGuards(ctx: ModuleContext, entries: Entry[]): void {
+function enforceGuards(ctx: ModuleContext, ns: string, entries: Entry[]): void {
   const styleguide = ctx.config.styleguide
   const problems: string[] = []
 
-  for (const { ns, keypath, values } of entries) {
+  for (const { keypath, values } of entries) {
     const key = qualifyKey(ns, keypath)
     const stored = (locale: string): string | undefined => ctx.rm.getFlatTranslationsPerLocale(ns)[locale]?.[keypath]
 
@@ -110,38 +106,64 @@ function enforceGuards(ctx: ModuleContext, entries: Entry[]): void {
 }
 
 /**
- * Advice worth printing but never worth blocking on: both checks read a term as a plain substring,
- * which an ordinary word of another language can match by coincidence.
+ * What the terminology checks found: the key and locales that tripped a rule, and the rule itself as
+ * the project authored it. One rule at a time, so what is printed is the one that fired rather than
+ * every rule there is. Both checks match a term by its written form, which morphology can put out of
+ * reach, so this is a question rather than a verdict.
  */
-function printAdvisories(ctx: ModuleContext, entries: Entry[]): void {
+function terminologyBlocks(ctx: ModuleContext, ns: string, entries: Entry[]): string[] {
   const styleguide = ctx.config.styleguide
+  const blocks: string[] = []
 
-  for (const { ns, keypath, values } of entries) {
-    const key = qualifyKey(ns, keypath)
+  const block = (key: string, check: string, locales: string[], rule: StyleguideConfig): void => {
+    if (!locales.length) return
 
-    printIssues(key, 'do-not-translate', checkDoNotTranslate(values, styleguide))
-    printIssues(key, 'glossary', checkGlossary(values, styleguide))
+    blocks.push(
+      `[nothing written yet] ${key}, ${locales.join(', ')}: may break this ${check} rule, as authored in ${loccyConfigFilename}\n\n` +
+        renderStyleguideYaml(rule).trimEnd(),
+    )
   }
-}
 
-function printIssues(key: string, check: string, issues: ComplianceIssue[]): void {
-  if (!issues.length) return
+  for (const { keypath, values } of entries) {
+    const key = qualifyKey(ns, keypath)
+    // The message as it will stand once written, not only the locales this call carries: a term
+    // weighed per call is a term got past by sending one locale at a time.
+    const merged = { ...ctx.rm.existingTranslationsLocalizedText(keypath, ns), ...values }
 
-  console.log(`warning: ${key}: automated ${check} check triggered. Fix unless it is a false positive.`)
-  for (const issue of issues) console.log(`  ${issue.message}`)
-}
-
-/** Points at the rules rather than reprinting them: that command is what hands out the token. */
-function printStyleguideReview(ctx: ModuleContext, entries: Entry[]): void {
-  for (const entry of entries) {
-    const deleted = deletedLocales(entry.values)
-    if (deleted.length) {
-      console.log(
-        `Note: "" for ${deleted.join(', ')} deletes ${qualifyKey(entry.ns, entry.keypath)} from those locale files.`,
-      )
+    for (const term of styleguide?.doNotTranslate ?? []) {
+      block(key, 'do-not-translate', checkDoNotTranslate(merged, { doNotTranslate: [term] }), {
+        doNotTranslate: [term],
+      })
+    }
+    for (const entry of styleguide?.glossary ?? []) {
+      block(key, 'glossary', checkGlossary(merged, { glossary: [entry] }), { glossary: [entry] })
     }
   }
 
+  return blocks
+}
+
+/**
+ * Whether the terminology the batch uses has been answered for. A flagged batch is refused once and
+ * written on the repeat: the checks are approximate, so an agent that has weighed the report and
+ * stands by the copy has to be able to say so, and repeating the call unchanged is that.
+ */
+async function terminologyChecked(ctx: ModuleContext, ns: string, entries: Entry[]): Promise<boolean> {
+  const blocks = terminologyBlocks(ctx, ns, entries)
+  if (!blocks.length) return true
+
+  // Locale order in the JSON is not a different batch, so the subject is taken from the values, not
+  // from how they were spelled.
+  const batch = JSON.stringify(entries.map(({ keypath, values }) => [keypath, Object.entries(values).sort()]).sort())
+  if (!(await refuseOnce(`terminology:${ctx.module.name}:${ns}:${process.cwd()}`, batch))) return true
+
+  console.log(blocks.join('\n\n'))
+  console.log('\nFalse positives happen: fix the copy, or repeat this exact call to write it as-is.')
+  return false
+}
+
+/** Points at the rules rather than reprinting them: that command is what hands out the token. */
+function printStyleguideReview(): void {
   console.log('\n  loccy-tool styleguide')
   console.log('\nThat prints the rules this project writes by, and the token. Check the values against them,')
   console.log('then rerun with --styleguided <token>.')
@@ -218,15 +240,14 @@ export async function upsertMessageCommand(options: KeyOptions & { styleguided?:
     ns,
     entries.map((entry) => entry.keypath),
   )
-  enforceGuards(ctx, entries)
-
-  printAdvisories(ctx, entries)
+  enforceGuards(ctx, ns, entries)
 
   // A styleguide with no rules has nothing to check against, so demanding the handshake would only
   // cost a round trip.
-  if (hasStyleguideRules(ctx.config) && !confirmed(ctx, entries, options.styleguided)) return
+  if (hasStyleguideRules(ctx.config) && !confirmed(ctx, options.styleguided)) return
+  if (!(await terminologyChecked(ctx, ns, entries))) return
 
-  await applyEntries(ctx, entries)
+  await applyEntries(ctx, ns, entries)
 }
 
 /**
@@ -234,7 +255,7 @@ export async function upsertMessageCommand(options: KeyOptions & { styleguided?:
  * styleguide moved since it was issued, which is the one case worth distinguishing: the caller did
  * read rules, just not the ones in force now.
  */
-function confirmed(ctx: ModuleContext, entries: Entry[], token: string | undefined): boolean {
+function confirmed(ctx: ModuleContext, token: string | undefined): boolean {
   const expected = styleguideToken(ctx.config)
   if (token === expected) return true
 
@@ -246,25 +267,20 @@ function confirmed(ctx: ModuleContext, entries: Entry[], token: string | undefin
   } else {
     console.log('\n[nothing written yet] this call carries no --styleguided token.')
   }
-  printStyleguideReview(ctx, entries)
+  printStyleguideReview()
   return false
 }
 
-async function applyEntries(ctx: ModuleContext, entries: Entry[]): Promise<void> {
+async function applyEntries(ctx: ModuleContext, ns: string, entries: Entry[]): Promise<void> {
   const before = new Map(
     entries.map((entry) => [
-      qualifyKey(entry.ns, entry.keypath),
-      ctx.rm.existingTranslationsLocalizedText(entry.keypath, entry.ns),
+      qualifyKey(ns, entry.keypath),
+      ctx.rm.existingTranslationsLocalizedText(entry.keypath, ns),
     ]),
   )
 
-  const changed = new Map<string, string>()
-  for (const ns of new Set(entries.map((entry) => entry.ns))) {
-    const perKeypath = Object.fromEntries(
-      entries.filter((entry) => entry.ns === ns).map((entry) => [entry.keypath, entry.values]),
-    )
-    for (const [filePath, content] of ctx.rm.updateKeypaths(perKeypath, ns)) changed.set(filePath, content)
-  }
+  const perKeypath = Object.fromEntries(entries.map((entry) => [entry.keypath, entry.values]))
+  const changed = new Map(ctx.rm.updateKeypaths(perKeypath, ns))
 
   if (!changed.size) {
     console.log(`no change: the files already say exactly this for ${entries.length} key${s(entries.length)}`)
@@ -275,17 +291,31 @@ async function applyEntries(ctx: ModuleContext, entries: Entry[]): Promise<void>
 
   // The caller sent these values and named these keys, so neither is worth printing back.
   console.log(`wrote ${entries.length} key${s(entries.length)} to ${collapsePaths([...changed.keys()])}`)
-  printStaleNameReminder(entries, before)
+  printDeletions(ns, entries, before)
+  printStaleNameReminder(ns, entries, before)
+}
+
+/**
+ * Keys an empty value took out of a locale file, which the count of keys written does not say and
+ * the caller cannot see. Only where text was actually there: emptying a locale that never held the
+ * key changes nothing.
+ */
+function printDeletions(ns: string, entries: Entry[], before: Map<string, LocalizedText>): void {
+  for (const entry of entries) {
+    const key = qualifyKey(ns, entry.keypath)
+    const gone = deletedLocales(entry.values).filter((locale) => before.get(key)?.[locale]?.trim())
+    if (gone.length) console.log(`  removed ${key} from ${gone.join(', ')}`)
+  }
 }
 
 /**
  * Reworded copy is where a keypath quietly stops describing its message. Raised only where copy a
  * key already carried actually changed, never for one this call adds.
  */
-function printStaleNameReminder(entries: Entry[], before: Map<string, LocalizedText>): void {
+function printStaleNameReminder(ns: string, entries: Entry[], before: Map<string, LocalizedText>): void {
   const reworded = entries.some((entry) =>
     Object.entries(entry.values).some(([locale, value]) => {
-      const previous = before.get(qualifyKey(entry.ns, entry.keypath))?.[locale]?.trim()
+      const previous = before.get(qualifyKey(ns, entry.keypath))?.[locale]?.trim()
       return previous && value.trim() && previous !== value.trim()
     }),
   )

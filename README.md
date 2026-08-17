@@ -53,14 +53,21 @@ More → [apps/lint](apps/lint)
 
 ## Claude Code plugin (experimental)
 
-- Makes sure the agent is styleguide-aware every time it adds or edits translations (tone, terminology, etc.)
-- Tooling for faster CRUD on messages e.g. `echo '{"login.title":{"en":"Sign in","de":"Anmelden"}}' | loccy-tool upsert-message` writes every locale at once, instead of finding the translation files and patching each one separately
-- Help across the Loccy ecosystem: setup from scratch, styleguide authoring, and the rest
+Helps Claude keep multilingual copy in healthy state:
+- enforcing styleguide (tone, locale rules, terminology)
+- keeping key names in sync with the copy
+
+A hand edit of a translation file is denied and redirected to `loccy-tool`, which writes every locale at once: `echo '{"login.title":{"en":"Sign in","de":"Anmelden"}}' | loccy-tool upsert-message`. Nothing is written until the copy has been checked against the styleguide the project authored.
+
+Also helps setup Loccy tools and author styleguide.
 
 ```
-claude plugin marketplace add loccy-dev/monorepo --scope project
-claude plugin install loccy --scope project
+curl -fsSL https://raw.githubusercontent.com/loccy-dev/monorepo/main/apps/claude-plugin/install.sh | bash
 ```
+
+Windows: `irm https://raw.githubusercontent.com/loccy-dev/monorepo/main/apps/claude-plugin/install.ps1 | iex`
+
+Installs the plugin and turns auto-update on for it, which Claude Code leaves off by default.
 
 More → [apps/claude-plugin](apps/claude-plugin)
 

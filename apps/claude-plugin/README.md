@@ -1,62 +1,59 @@
 # Loccy plugin for Claude Code (experimental)
 
-- Makes sure the agent is styleguide-aware every time it adds or edits translations (tone, terminology, etc.)
-- Tooling for faster CRUD on messages e.g. `echo '{"login.title":{"en":"Sign in","de":"Anmelden"}}' | loccy-tool upsert-message` writes every locale at once, instead of finding the translation files and patching each one separately
-- Help across the Loccy ecosystem: setup from scratch, styleguide authoring, and the rest
+Purpose of this plugin is to help Claude keep multilingual copy in healthy state:
+- enforcing styleguide (tone, locale rules, terminology)
+- keeping key names in sync with the copy
 
-
-Reads the same `loccy.yaml` as the [IDE extension](../extension) and the [linter](../lint).
-
-Self-contained, free, no API key needed.
+Also helps setup Loccy tools and author styleguide.
 
 > [!NOTE]
 > This plugin is experimental and not documented yet: commands, skills and behaviour are subject to
-> change. Early feedback is worth a lot at this stage, and very welcome in our
-> [Discord](https://discord.gg/btztGrejXU).
+> change.
 
 ## Installation
 
+macOS and Linux:
+
 ```
-claude plugin marketplace add loccy-dev/monorepo --scope project
-claude plugin install loccy --scope project
+curl -fsSL https://raw.githubusercontent.com/loccy-dev/monorepo/main/apps/claude-plugin/install.sh | bash
 ```
 
-## Skills
+Windows (PowerShell):
 
-| Skill | For |
-| :--- | :--- |
-| `loccy-toolkit` | what Loccy is, and first-time setup |
-| `author-styleguide` | writing down the rules every translation is checked against |
+```
+irm https://raw.githubusercontent.com/loccy-dev/monorepo/main/apps/claude-plugin/install.ps1 | iex
+```
 
-## Tools
+Adds the marketplace, installs the plugin, and turns auto-update on for it in `settings.json`.
+Auto-update is off by default for marketplaces that are not Anthropic's own, and the plugin carries
+the `loccy-tool` binary, so without it you stay on the version you installed. Skip it with
+`--no-auto-update` (`-NoAutoUpdate`), reinstall with `--force` (`-Force`).
 
-`loccy-tool` ships in the plugin at `${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool`. The SessionStart hook puts its absolute path in context, and a session calls it by that path.
+By hand instead: `claude plugin marketplace add loccy-dev/monorepo`, `claude plugin install loccy`,
+then turn auto-update on in `/plugin`.
 
-| | |
-| :--- | :--- |
-| read | `search` |
-| write | `upsert-message` `rename-key` `remove-message` |
-| rules | `styleguide` |
-| setup | `init` |
+## How it works
 
-## Hooks
+- on startup (main or subagent): if `loccy.yaml` exists in project, give agent instruction to use `loccy-tool` for i18n edits
+- on hand edit of a translation file: denied, agent redirected to `loccy-tool` (recommendation only: a repeat within 5 min goes through)
+- on edit attempt via `loccy-tool` without passing styleguide hash input being rejected and agent asked to read current latest styleguide in full first. Hash is derived from the rules, so it dies the moment they change
 
-- The project's i18n setup lands in context at session start, in a project that has `loccy.yaml`. Nothing at all in one that doesn't.
-- A hand edit of a translation file is stopped, so edits go through the fast, styleguide-checked gate instead (recommendation only: a retry within five minutes goes through).
+enforcments/feedback along-the-way:
+- `upsert-message` - regional locale repeating the value it already inherits from its parent
+- `upsert-message` - static terminology checks (do-not-translate, glossary). Both false negatives and false positives exist; the latter is the agent's call, repeating the exact call writes the copy as-is
+- `upsert-message` - copy of an existing key reworded: hint that the keypath may no longer describe its message, `rename-key` the ones that drifted
 
-### Running a hook by hand
+SKILLS
+- `loccy-toolkit`: discovery when no config exists
+- `author-styleguide`
 
-Each hook is a hidden `loccy-tool` command, fed the harness payload as JSON on stdin. Run one with
-nothing piped in and it reads an empty payload, decides it has nothing to say, and prints nothing:
-that is the hook working, not a broken one.
 
-Every hook has a `-debug` twin. Same entry point, same decision, so what it shows cannot drift from
-what the harness gets. It differs in three ways: the JSON is laid out rather than one line, text is
-printed with its line breaks instead of `\n`, and a hook that stays silent says why on stderr.
+## Debugging (dev)
 
 | Hook | Debug twin | Payload field it needs |
 | :--- | :--- | :--- |
 | `hook-session-start` | `hook-session-start-debug` | `cwd` (defaults to the working directory) |
+| `hook-subagent-start` | `hook-subagent-start-debug` | `cwd` (defaults to the working directory) |
 | `hook-pre-edit` | `hook-pre-edit-debug [file]` | `tool_input.file_path`, or the `[file]` argument |
 
 Run from the project root, so `cwd` needs no spelling out:
@@ -65,10 +62,6 @@ Run from the project root, so `cwd` needs no spelling out:
 loccy-tool hook-session-start-debug
 loccy-tool hook-pre-edit-debug locales/en.json
 ```
-
-`hook-pre-edit-debug` with no file falls back to a translation file the guard governs, so it always
-has something to show. It also runs on a session of its own, so the five-minute unlock window a real
-denial opens can never silence a replay.
 
 Set `LOCCY_DEBUG=1` to trace every invocation (arguments, stdin, output, exit code) to
 `$TMPDIR/loccy-claude-plugin.log`, replaced at each session start.

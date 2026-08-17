@@ -1,6 +1,6 @@
 import { expect, vi } from 'vitest'
-import type { ModuleContext } from './context'
 import { NS_WITHOUT_NS } from '@repo/shared/core/helpers/namespace.helpers'
+import type { ModuleContext } from '../context'
 
 /**
  * A context holding just the translation tree, for the guards and key resolution that read nothing

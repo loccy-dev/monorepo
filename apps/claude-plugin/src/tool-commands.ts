@@ -50,6 +50,8 @@ remove leaves references behind for you to update.
 
 ${renderCommands()}
 
+Never pipe output through head, tail or grep. Every output is meant to be read whole.
+
 ${BATCH_SYNTAX}
 
 Pass --help to any command for details.`

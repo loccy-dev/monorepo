@@ -1,5 +1,7 @@
 import { partialOverridesOf } from '@repo/types/config.types'
 import { s } from '@repo/shared/core/helpers/helpers'
+import { extractFileExt } from '@repo/shared/core/helpers/path.helpers'
+import { getResourceFormatByExt } from '@repo/shared/core/registry'
 import { NS_WITHOUT_NS, qualifyKey } from '@repo/shared/core/helpers/namespace.helpers'
 import type { QualifiedKeypath } from '@repo/shared/core/usages/find-usages'
 import {
@@ -43,6 +45,44 @@ interface Search {
   key: Matcher | null
   /** Uncapped by default: an audit that silently stops at ten reads as a corpus that holds ten. */
   limit: number | null
+  /** Where every key sits, resolved once and only where something matched. */
+  where: () => LocationIndex
+}
+
+/** The file a locale's copy of a key lives in, and the line it sits on. */
+interface Location {
+  file: string
+  line: number
+}
+
+/** Every keypath's line, per translation file. */
+type LocationIndex = Map<string, Map<string, number>>
+
+/**
+ * A keypath names no file, and a corpus is many: one file per locale, times one per namespace. The
+ * parsers already report where each key sits, for the annotations an editor draws in these files.
+ */
+function locationIndex(ctx: ModuleContext): LocationIndex {
+  const index: LocationIndex = new Map()
+
+  for (const [file, content] of ctx.rm.getAllFileContents()) {
+    const ranges = getResourceFormatByExt(extractFileExt(file))?.keypathRanges?.(content) ?? []
+    index.set(file, new Map(ranges.map((range) => [range.keypath, range.loc.line])))
+  }
+  return index
+}
+
+/** Where each locale keeps this key. A format that cannot report positions simply has nothing here. */
+function locationsFor(search: Search, { ns, keypath }: QualifiedKeypath): Record<string, Location> {
+  const found: Record<string, Location> = {}
+
+  for (const [file, meta] of search.ctx.rm.getFileLocaleMap()) {
+    if (meta.namespace !== ns || !search.locales.includes(meta.locale)) continue
+
+    const line = search.where().get(file)?.get(keypath)
+    if (line !== undefined) found[meta.locale] = { file, line }
+  }
+  return found
 }
 
 /** Messages the keypath filter and the text query both accept, each listed once. */
@@ -89,10 +129,12 @@ function printMatches(search: Search, label: string, matched: QualifiedKeypath[]
   console.log(`${matched.length} match${s(matched.length, 'es')} for ${label}${where}\n`)
 
   for (const match of matched.slice(0, limit ?? matched.length)) {
+    const at = locationsFor(search, match)
     console.log(`keypath: ${qualifyKey(match.ns, match.keypath)}`)
     console.log('locales:')
     for (const [locale, value] of Object.entries(valuesOf(search, match))) {
-      console.log(`  ${locale}: ${value || '(missing)'}`)
+      const where = at[locale]
+      console.log(`  ${locale}: ${value || '(missing)'}${where ? `  ${where.file}:${where.line}` : ''}`)
     }
     console.log('')
   }
@@ -123,6 +165,7 @@ function printJson(search: Search, blocks: { text?: string; key?: string; matche
             ns: match.ns === NS_WITHOUT_NS ? null : match.ns,
             keypath: match.keypath,
             values: valuesOf(search, match),
+            files: locationsFor(search, match),
           })),
         })),
       },
@@ -161,6 +204,7 @@ export async function searchCommand(
   },
 ): Promise<void> {
   const ctx = await loadModuleContext(options)
+  let index: LocationIndex | undefined
 
   const namespaces = ctx.rm.namespaces.filter((ns) => ns !== NS_WITHOUT_NS)
   if (options.ns && !namespaces.includes(options.ns)) {
@@ -182,6 +226,7 @@ export async function searchCommand(
     inheriting: new Set(partialOverridesOf(ctx.config.styleguide?.localeRules).map((override) => override.locale)),
     key: fromStdin ? await keySetMatcher() : options.key ? matcherFor(options.key, `--key "${options.key}"`) : null,
     limit: options.limit === undefined ? null : requireCount(options.limit, '--limit', 0),
+    where: () => (index ??= locationIndex(ctx)),
   }
 
   // A call with no text is the keypath filter on its own, which is one block rather than none.

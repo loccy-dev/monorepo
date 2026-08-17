@@ -16,7 +16,7 @@ const buildConfig = {
   entryPoints: ["src/cli.ts"],
   outfile,
   platform: "node",
-  target: "node18",
+  target: "node20",
   format: "esm",
   bundle: true,
   // watch emits the same bytes as a one-off build, so `dev` never dirties the committed file

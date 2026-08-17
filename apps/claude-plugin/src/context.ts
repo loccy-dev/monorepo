@@ -5,6 +5,7 @@ import { NS_WITHOUT_NS } from '@repo/shared/core/helpers/namespace.helpers'
 import { LoccyConfigError, readConfigFile } from '@repo/shared/core/loccy-config/loccy-config'
 import type { ResourceManager } from '@repo/shared/core/resources/resource-manager'
 import { createResourceManager } from '@repo/shared/core/resources/resource-manager'
+import { findProjectRoot } from './project-root'
 
 export interface ModuleOptions {
   module?: string
@@ -29,7 +30,7 @@ export function fail(...lines: string[]): never {
 }
 
 export function loadPlatform(): Platform {
-  return createNodePlatform(process.cwd())
+  return createNodePlatform(findProjectRoot(process.cwd()))
 }
 
 /** Exit on a config that exists but doesn't parse or resolve. */

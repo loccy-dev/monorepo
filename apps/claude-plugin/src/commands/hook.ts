@@ -1,7 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { statSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { randomUUID } from 'node:crypto'
 // pathe, not node:path — the relative path is matched against globs, which are posix-separated
 // whatever the platform.
 import { relative, isAbsolute, join } from 'pathe'
@@ -14,6 +11,8 @@ import { LoccyConfigError, readConfigFile } from '@repo/shared/core/loccy-config
 import { createResourceManager } from '@repo/shared/core/resources/resource-manager'
 import { readStdin } from '../stdin'
 import { startLog } from '../debug-log'
+import { findProjectRoot } from '../project-root'
+import { refuseOnce, UNLOCK_MS } from '../retry-window'
 import { buildStartupContext } from './setup'
 
 interface HookInput {
@@ -79,38 +78,6 @@ export function moduleOwning(config: LoccyConfig, relativePath: string): string 
   return null
 }
 
-/** How long a denial leaves the file open, so a deliberate retry lands without a second refusal. */
-const UNLOCK_MS = 5 * 60 * 1000
-
-/**
- * Whether to redirect this edit at `loccy-tool`, which every attempt outside an open window is. The
- * marker's age is the window: a retry within it goes through, since the guard exists to catch an
- * agent reaching for the wrong tool, not to make a file unreachable when `loccy-tool` genuinely
- * cannot do the job. Once the window closes the next edit is redirected again, so a later change,
- * arriving with the reasoning that earned the exception long gone, is weighed afresh.
- */
-async function redirect(sessionId: string, relativePath: string): Promise<boolean> {
-  const digest = (value: string) => createHash('sha1').update(value).digest('hex').slice(0, 16)
-  const dir = join(tmpdir(), 'loccy-tool-guard', digest(sessionId))
-  const marker = join(dir, digest(relativePath))
-
-  try {
-    if (Date.now() - statSync(marker).mtimeMs < UNLOCK_MS) return false
-  } catch {
-    // No marker yet, so nothing has been said about this file.
-  }
-
-  try {
-    await mkdir(dir, { recursive: true })
-    await writeFile(marker, relativePath)
-    return true
-  } catch {
-    // No way to remember the redirection means no way to let a retry through, and a guard that
-    // cannot be got past would block every edit for the rest of the session.
-    return false
-  }
-}
-
 /**
  * PreToolUse guard on translation files. Editing one file at a time drifts the locales apart, so the
  * attempt is denied and answered with the `loccy-tool` command that does the same job properly.
@@ -121,25 +88,27 @@ async function redirect(sessionId: string, relativePath: string): Promise<boolea
 export async function preEditHook(debug: boolean, file?: string): Promise<void> {
   const input = await readHookInput()
   const cwd = input?.cwd ?? process.cwd()
-  const platform = createNodePlatform(cwd)
+  // Globs are written relative to the config, and a session opens wherever the user is standing.
+  const root = findProjectRoot(cwd)
+  const platform = createNodePlatform(root)
 
   let config: LoccyConfig | null
   try {
     config = await readConfigFile(platform)
   } catch (err) {
     // Not the same as having no config: calling a broken file absent sends a debug run looking for it.
-    return silent(debug, reasonFor(err) ?? `${loccyConfigFilename} in ${cwd} does not load`)
+    return silent(debug, reasonFor(err) ?? `${loccyConfigFilename} in ${root} does not load`)
   }
-  if (!config) return silent(debug, `no ${loccyConfigFilename} in ${cwd}, so the guard governs nothing there`)
+  if (!config) return silent(debug, `no ${loccyConfigFilename} at or above ${cwd}, so the guard governs nothing there`)
 
   // Named on the command line, else carried by the payload. A debug run with neither is answered
   // with a file the guard actually governs, so it has something to be shown about.
   const named = file ?? input?.tool_input?.file_path
   const filePath = named ?? (debug ? await anyTranslationFile(platform, config) : null)
-  if (!filePath) return silent(debug, `no file named, and the translation globs matched none in ${cwd}`)
+  if (!filePath) return silent(debug, `no file named, and the translation globs matched none in ${root}`)
 
-  const relativePath = isAbsolute(filePath) ? relative(cwd, filePath) : filePath
-  if (relativePath.startsWith('..')) return silent(debug, `${filePath} is outside ${cwd}`)
+  const relativePath = isAbsolute(filePath) ? relative(root, filePath) : relative(root, join(cwd, filePath))
+  if (relativePath.startsWith('..')) return silent(debug, `${filePath} is outside ${root}`)
 
   if (!moduleOwning(config, relativePath)) {
     return silent(debug, `${relativePath} matches no module's translations.glob`)
@@ -148,7 +117,7 @@ export async function preEditHook(debug: boolean, file?: string): Promise<void> 
   // A debug run gets a session of its own, since the window a real denial opens is not something a
   // replay should ever be silenced by.
   const session = debug ? `debug:${randomUUID()}` : (input?.session_id ?? 'no-session')
-  if (!(await redirect(session, relativePath))) {
+  if (!(await refuseOnce(`edit:${session}`, relativePath))) {
     return silent(debug, `${relativePath} is inside its ${UNLOCK_MS / 60000}-minute unlock window`)
   }
 
@@ -167,30 +136,45 @@ export async function preEditHook(debug: boolean, file?: string): Promise<void> 
 }
 
 /**
- * SessionStart: put the project's own i18n setup and styleguide in context before the first message
- * is written, so the rules never have to be asked for. An unconfigured project gets the offer to run
- * setup instead, a broken config gets the parse error, and one with no translations gets nothing.
+ * The briefing both start hooks carry: the project's own i18n setup and styleguide, in context before
+ * the first message is written, so the rules never have to be asked for. A project with no
+ * `loccy.yaml` is answered with nothing at all, a broken one with the parse error.
  * `argv[1]` is the plugin root the harness expanded, which is the path a session runs the tool by.
  */
-export async function sessionStartHook(debug: boolean): Promise<void> {
+async function brief(event: 'SessionStart' | 'SubagentStart', debug: boolean): Promise<void> {
   const input = await readHookInput()
-  startLog()
-
   const cwd = input?.cwd ?? process.cwd()
   const bin = process.argv[1] ?? 'loccy-tool'
 
-  const context = await buildStartupContext(createNodePlatform(cwd), bin).catch(
+  const context = await buildStartupContext(createNodePlatform(findProjectRoot(cwd)), bin).catch(
     (err: unknown) =>
       `# Loccy\n\n\`${loccyConfigFilename}\` does not load, so every ${bin} command will fail until it does:\n\n${reasonFor(err) ?? String(err)}`,
   )
+  if (!context)
+    return silent(debug, `no ${loccyConfigFilename} at or above ${cwd}, so there is no i18n setup to describe`)
 
   emit(
     {
       // The trace is never mentioned here: it exists to show what a session does unprompted, and
       // saying it is on would change that.
-      hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context },
+      hookSpecificOutput: { hookEventName: event, additionalContext: context },
       suppressOutput: true,
     },
     debug,
   )
+}
+
+/** SessionStart: the briefing, and the point the trace starts over from. */
+export async function sessionStartHook(debug: boolean): Promise<void> {
+  startLog()
+  await brief('SessionStart', debug)
+}
+
+/**
+ * SubagentStart: the same briefing, since a subagent starts on its own context and would otherwise
+ * reach for i18n files with none of it. The trace is left alone here, as a subagent starting is not
+ * the session starting.
+ */
+export async function subagentStartHook(debug: boolean): Promise<void> {
+  await brief('SubagentStart', debug)
 }

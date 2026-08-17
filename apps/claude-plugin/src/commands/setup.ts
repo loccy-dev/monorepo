@@ -59,14 +59,23 @@ function whereTheBinaryIs(bin: string): string {
 }
 
 /**
- * What a session opens on: the tool it operates i18n through, and what this project resolves to.
- * A project with no `loccy.yaml` is told only where the binary is, so the plugin stays close to
- * invisible where it has nothing to say, while setup can still be run.
+ * How the tool is spelled to run it. The file is a node script, and Windows has no shebang to read,
+ * so there the interpreter is named and the path quoted, plugin roots having spaces in them.
  */
-export async function buildStartupContext(platform: Platform, bin: string): Promise<string> {
-  const config = await readConfigFile(platform)
-  if (!config) return whereTheBinaryIs(bin)
+function invocation(path: string): string {
+  return process.platform === 'win32' ? `node "${path}"` : path
+}
 
+/**
+ * What a session opens on: the tool it operates i18n through, and what this project resolves to.
+ * A project with no `loccy.yaml` gets nothing at all, so the plugin is entirely invisible where it
+ * has nothing to say.
+ */
+export async function buildStartupContext(platform: Platform, binPath: string): Promise<string | null> {
+  const config = await readConfigFile(platform)
+  if (!config) return null
+
+  const bin = invocation(binPath)
   const { blocks, mostNamespaces } = await describeSetup(platform, config)
   const sections = [`## This project uses i18n\n\n${blocks}`, whereTheBinaryIs(bin), workflow(bin)]
 

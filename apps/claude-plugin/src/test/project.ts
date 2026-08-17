@@ -1,23 +1,6 @@
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { Readable } from 'node:stream'
 import { dirname, join } from 'pathe'
-import { vi } from 'vitest'
-import { buildProgram } from '../program'
-
-/** What a command left behind: what it printed, and how it ended. */
-export interface Run {
-  out: string
-  err: string
-  code: number
-  /**
-   * The command threw instead of reporting and exiting. A refusal and a crash both land in `err`,
-   * so without this a test could not tell an actionable message from a stack trace.
-   */
-  crashed: boolean
-}
-
-class ExitSignal extends Error {}
 
 let root = ''
 let previousCwd = ''
@@ -38,6 +21,14 @@ export function cleanupProject(): void {
   previousCwd = ''
 }
 
+/** Stand somewhere below the project root, which in a monorepo is where a session actually opens. */
+export function chdirInto(path: string): string {
+  const full = join(root, path)
+  mkdirSync(full, { recursive: true })
+  process.chdir(full)
+  return full
+}
+
 export function writeProjectFile(path: string, content: string): void {
   const full = join(root, path)
   mkdirSync(dirname(full), { recursive: true })
@@ -50,59 +41,6 @@ export function readProjectFile(path: string): string {
 
 export function projectPath(path: string): string {
   return join(root, path)
-}
-
-/** Stand in for the pipe, so `readStdin` is exercised rather than replaced. */
-function pipeStdin(value: string): void {
-  const stream = Readable.from(value ? [value] : [])
-  Object.defineProperty(stream, 'isTTY', { value: false })
-  Object.defineProperty(process, 'stdin', { value: stream, configurable: true })
-}
-
-/**
- * Run the CLI the way `cli.ts` does, down to how it reports a rejected action, so a test sees the
- * output an agent would.
- */
-export async function run(argv: string[], stdin = ''): Promise<Run> {
-  const out: string[] = []
-  const err: string[] = []
-  let code = 0
-  let crashed = false
-
-  const exit = vi.spyOn(process, 'exit').mockImplementation(((status?: number) => {
-    code = status ?? 0
-    throw new ExitSignal()
-  }) as never)
-  const log = vi
-    .spyOn(console, 'log')
-    .mockImplementation((...args: unknown[]) => void out.push(args.map(String).join(' ')))
-  const error = vi
-    .spyOn(console, 'error')
-    .mockImplementation((...args: unknown[]) => void err.push(args.map(String).join(' ')))
-  // Commander writes its own argument errors straight to the stream, bypassing console.
-  const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: string) => {
-    err.push(String(chunk).trimEnd())
-    return true
-  }) as never)
-
-  pipeStdin(stdin)
-
-  try {
-    await buildProgram().parseAsync(['node', 'loccy-tool', ...argv])
-  } catch (thrown) {
-    if (!(thrown instanceof ExitSignal)) {
-      err.push(`error: ${thrown instanceof Error ? thrown.message : String(thrown)}`)
-      code = 1
-      crashed = true
-    }
-  } finally {
-    exit.mockRestore()
-    log.mockRestore()
-    error.mockRestore()
-    stderr.mockRestore()
-  }
-
-  return { out: out.join('\n'), err: err.join('\n'), code, crashed }
 }
 
 export const CONFIG = `modules:
@@ -166,3 +104,8 @@ export function namespacedProject(): string {
     'src/app.ts': `t('auth:login.title')\n`,
   })
 }
+
+/** What the base project's files say now, which is what a write has to be checked against. */
+export const en = () => JSON.parse(readProjectFile('locales/en.json'))
+export const de = () => JSON.parse(readProjectFile('locales/de.json'))
+export const source = () => readProjectFile('src/app.ts')
