@@ -7,18 +7,15 @@ MARKETPLACE="loccy"
 PLUGIN="loccy@loccy"
 
 AUTO_UPDATE=1
-FORCE=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-auto-update) AUTO_UPDATE=0 ;;
-    --force) FORCE=1 ;;
     -h|--help)
       cat <<'EOF'
-Install the Loccy plugin for Claude Code.
+Install the Loccy plugin for Claude Code, for every project you open.
 
   --no-auto-update  leave the marketplace on manual updates
-  --force           reinstall even if the plugin is already there
 
 Auto-update is a marketplace setting, off by default for marketplaces that are
 not Anthropic's own, so this writes it to your Claude Code settings.json. Skip
@@ -37,33 +34,30 @@ fail() { printf '\033[31m%s\033[0m\n' "$1" >&2; exit 1; }
 
 command -v claude >/dev/null 2>&1 || fail "claude was not found. Install Claude Code first: https://claude.com/claude-code"
 
+settings_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+settings="${settings_dir}/settings.json"
+
 say "Loccy plugin for Claude Code"
+note "configuring ${settings_dir}"
 
-# 1. The marketplace this plugin is published through.
-if claude plugin marketplace list 2>/dev/null | grep -q "❯ ${MARKETPLACE}$"; then
-  note "marketplace ${MARKETPLACE} already configured"
-else
-  claude plugin marketplace add "$REPO" >/dev/null || fail "could not add the ${MARKETPLACE} marketplace"
-  note "marketplace ${MARKETPLACE} added"
-fi
+# Both CLI steps are idempotent and report what they did, so they run unconditionally. User scope is
+# what makes the plugin show up in every project rather than only the one this was run from.
+claude plugin marketplace add "$REPO" --scope user >/dev/null || fail "could not add the ${MARKETPLACE} marketplace"
+note "marketplace ${MARKETPLACE} ready"
 
-# 2. The plugin itself.
-if [ "$FORCE" = 0 ] && claude plugin list 2>/dev/null | grep -q "❯ ${PLUGIN}$"; then
-  note "plugin ${PLUGIN} already installed (use --force to reinstall)"
-else
-  claude plugin install "$PLUGIN" --yes >/dev/null || fail "could not install ${PLUGIN}"
-  note "plugin ${PLUGIN} installed"
-fi
+claude plugin install "$PLUGIN" --scope user --yes >/dev/null || fail "could not install ${PLUGIN}"
 
-# 3. Auto-update, which is per marketplace and off unless it is asked for. The plugin carries the
-# loccy-tool binary, so a plugin left behind is a tool left behind.
+# A project-scoped entry left by an older install outranks the user-scoped one and would keep the
+# plugin off in that project. Nothing to clear is the normal case, and reported as a failure.
+claude plugin enable "$PLUGIN" >/dev/null 2>&1 || true
+note "plugin ${PLUGIN} installed for all projects"
+
+# Auto-update is per marketplace and off unless it is asked for. The plugin carries the loccy-tool
+# binary, so a plugin left behind is a tool left behind.
 if [ "$AUTO_UPDATE" = 0 ]; then
   note "auto-update left alone (--no-auto-update)"
 else
   command -v node >/dev/null 2>&1 || fail "node is needed to edit settings.json. Rerun with --no-auto-update, or turn auto-update on in /plugin"
-
-  settings_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-  settings="${settings_dir}/settings.json"
 
   # The written file is read back through the CLI, and put back as it was if that no longer works.
   backup=""
