@@ -2,13 +2,13 @@ import { randomUUID } from 'node:crypto'
 // pathe, not node:path — the relative path is matched against globs, which are posix-separated
 // whatever the platform.
 import { relative, isAbsolute, join } from 'pathe'
-import picomatch from 'picomatch'
 import type { LoccyConfig } from '@repo/types/config.types'
 import { loccyConfigFilename } from '@repo/types/config.types'
 import type { Platform } from '@repo/types/platform.types'
 import { createNodePlatform } from '@repo/node-platform/index'
 import { LoccyConfigError, readConfigFile } from '@repo/shared/core/loccy-config/loccy-config'
 import { createResourceManager } from '@repo/shared/core/resources/resource-manager'
+import { resourceModuleName } from '@repo/shared/core/files/module-globs'
 import { readStdin } from '../stdin'
 import { startLog } from '../debug-log'
 import { findProjectRoot } from '../project-root'
@@ -68,16 +68,6 @@ async function anyTranslationFile(platform: Platform, config: LoccyConfig): Prom
   return null
 }
 
-/** The module whose translation glob covers `relativePath`, if any. */
-export function moduleOwning(config: LoccyConfig, relativePath: string): string | null {
-  for (const [name, module] of Object.entries(config.modules)) {
-    const excluded = module.translations.exclude ?? []
-    if (excluded.length && picomatch.isMatch(relativePath, excluded)) continue
-    if (picomatch.isMatch(relativePath, module.translations.glob)) return name
-  }
-  return null
-}
-
 /**
  * PreToolUse guard on translation files. Editing one file at a time drifts the locales apart, so the
  * attempt is denied and answered with the `loccy-tool` command that does the same job properly.
@@ -110,7 +100,7 @@ export async function preEditHook(debug: boolean, file?: string): Promise<void> 
   const relativePath = isAbsolute(filePath) ? relative(root, filePath) : relative(root, join(cwd, filePath))
   if (relativePath.startsWith('..')) return silent(debug, `${filePath} is outside ${root}`)
 
-  if (!moduleOwning(config, relativePath)) {
+  if (!resourceModuleName(relativePath, Object.values(config.modules))) {
     return silent(debug, `${relativePath} matches no module's translations.glob`)
   }
 

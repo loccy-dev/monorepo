@@ -19,7 +19,7 @@ import type { ResolvedModule } from '@repo/types/config.types'
 import type { I18nFrameworkId } from '@repo/types/framework.types'
 import { editWorkspaceAndSave } from './workspace-edit'
 import { createVscodePlatform, loccyRoot, toRootRelative } from './vscode-platform'
-import { minimatch } from 'minimatch'
+import { matchesGlobs, sourceModuleNames as modulesClaimingSource } from '@repo/shared/core/files/module-globs'
 import type { LayoutPattern } from '@repo/types/config.types'
 
 /** A file read from disk for (re)building a module's `ResourceManager`. */
@@ -125,6 +125,9 @@ export class ResourceService {
   private views = new Map<string, ModuleView>()
   /** resource-file uri string → owning module name (populated as managers are built). */
   private fileToModule = new Map<string, string>()
+  /** source-file uri string → owning view. Resolving one walks every module's globs; the answer
+   *  only moves when the views do, so it is dropped wherever they are rebuilt. */
+  private sourceViews = new Map<string, ModuleView | undefined>()
 
   async init() {
     await this.rebuildAll()
@@ -148,6 +151,7 @@ export class ResourceService {
   ): void {
     this.views.clear()
     this.fileToModule.clear()
+    this.sourceViews.clear()
     const layout = opts.layout ?? '{locale}.json'
     const framework = opts.framework ?? 'custom'
     const manager = new ResourceManager(
@@ -174,6 +178,7 @@ export class ResourceService {
       usages: { include: ['**/*'] },
     }
     this.views.set('default', new ModuleView('default', module, manager))
+    this.sourceViews.clear()
   }
 
   // --- module runtime construction ---
@@ -189,13 +194,7 @@ export class ResourceService {
 
   private matchesModuleGlob(uri: vscode.Uri, module: ResolvedModule): boolean {
     const rel = toRootRelative(uri)
-    if (!rel) {
-      return false
-    }
-    if (module.translations.exclude?.some((ex) => minimatch(rel, ex, { dot: true }))) {
-      return false
-    }
-    return minimatch(rel, module.translations.glob, { dot: true })
+    return rel !== null && matchesGlobs(rel, [module.translations.glob], module.translations.exclude ?? [])
   }
 
   /** Read a module's resource files (matched by its glob) from disk, first-match-wins across modules. */
@@ -246,6 +245,7 @@ export class ResourceService {
       files.map((f) => ({ relativePath: f.relativePath, content: f.content })),
     )
     this.views.set(module.name, new ModuleView(module.name, module, manager))
+    this.sourceViews.clear()
     for (const f of files) {
       this.fileToModule.set(f.uri.toString(), module.name)
       claimed?.add(f.uri.toString())
@@ -255,6 +255,7 @@ export class ResourceService {
   private async rebuildAll() {
     this.views.clear()
     this.fileToModule.clear()
+    this.sourceViews.clear()
     const claimed = new Set<string>()
     for (const module of this.runtimeModules()) {
       await this.buildModule(module, claimed)
@@ -314,8 +315,14 @@ export class ResourceService {
    *  no primary fallback. Inserting/detecting a t-function in an unclaimed file is an error, not a
    *  silent default onto the first module. */
   resolveSourceView(sourceUri: vscode.Uri): ModuleView | undefined {
+    const key = sourceUri.toString()
+    if (this.sourceViews.has(key)) {
+      return this.sourceViews.get(key)
+    }
     const [name] = this.sourceModuleNames(sourceUri)
-    return name ? this.views.get(name) : undefined
+    const view = name ? this.views.get(name) : undefined
+    this.sourceViews.set(key, view)
+    return view
   }
 
   /** The module that owns a resource file (by its translations glob). */
@@ -357,14 +364,10 @@ export class ResourceService {
     if (!rel) {
       return []
     }
-    return this.allViews()
-      .filter((v) => {
-        if (v.module.usages.exclude?.some((ex) => minimatch(rel, ex, { dot: true }))) {
-          return false
-        }
-        return v.module.usages.include.some((g) => minimatch(rel, g, { dot: true }))
-      })
-      .map((v) => v.name)
+    return modulesClaimingSource(
+      rel,
+      this.allViews().map((view) => view.module),
+    )
   }
 
   /**

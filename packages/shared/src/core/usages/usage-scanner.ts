@@ -7,6 +7,7 @@ import type { DynamicKeyResolverInterface } from './key-detection/types'
 import { getFrameworkOrCustom, resolveActiveMessageFormat, resolveModuleTranslations } from '../registry'
 import type { MessageFormat } from '../contracts'
 import { collectUsedKeyDirectives, type UsedKeyDirective } from './used-key-directives'
+import { Gitignore } from '../files/gitignore'
 
 export interface UsageScannerOptions {
   framework: I18nFrameworkId
@@ -26,8 +27,8 @@ export interface UsageScannerOptions {
 export interface ScanResult {
   perFile: Map<string, KeypathInfo[]>
   /**
-   * Source files the globs actually matched. Zero means nothing was looked at, which no count of
-   * findings can express: `perFile` holds only the files that matched a key.
+   * Source files actually read, after globs and gitignore. Zero means nothing was looked at, which
+   * no count of findings can express: `perFile` holds only the files that matched a key.
    */
   scannedFiles: number
   /** `loccy-used-keys` directives found in scanned sources, tagged with their file. */
@@ -46,9 +47,12 @@ export class UsageScanner {
   }
 
   async scan(): Promise<ScanResult> {
-    const files = await this.platform.findFiles(this.options.includePatterns, this.options.excludePatterns, {
-      respectGitignore: true,
-    })
+    const [matched, gitignore] = await Promise.all([
+      this.platform.findFiles(this.options.includePatterns, this.options.excludePatterns),
+      Gitignore.load(this.platform),
+    ])
+    const files = matched.filter((filePath) => !gitignore.isIgnored(filePath))
+
     const perFile = new Map<string, KeypathInfo[]>()
     const usedKeyDirectives: ScanResult['usedKeyDirectives'] = []
 

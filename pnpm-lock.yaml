@@ -35,9 +35,6 @@ importers:
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
-      '@types/picomatch':
-        specifier: ^4.0.2
-        version: 4.0.3
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -47,9 +44,6 @@ importers:
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
-      picomatch:
-        specifier: ^4.0.5
-        version: 4.0.5
       prettier:
         specifier: ^3.8.2
         version: 3.8.2
@@ -83,18 +77,12 @@ importers:
       diff:
         specifier: ^9.0.0
         version: 9.0.0
-      ignore:
-        specifier: ^7.0.5
-        version: 7.0.5
       json5:
         specifier: ^2.2.3
         version: 2.2.3
       lodash:
         specifier: ^4.18.1
         version: 4.18.1
-      minimatch:
-        specifier: ^10.2.5
-        version: 10.2.5
       string-similarity-js:
         specifier: ^2.1.4
         version: 2.1.4
@@ -402,6 +390,9 @@ importers:
       '@repo/types':
         specifier: workspace:*
         version: link:../types
+      ignore:
+        specifier: ^7.0.5
+        version: 7.0.5
       js-yaml:
         specifier: ^4.1.1
         version: 4.1.1
@@ -417,6 +408,9 @@ importers:
       php-parser:
         specifier: ^3.7.0
         version: 3.7.0
+      picomatch:
+        specifier: ^4.0.5
+        version: 4.0.5
       regex:
         specifier: ^6.1.0
         version: 6.1.0
@@ -433,6 +427,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
+      '@types/picomatch':
+        specifier: ^4.0.2
+        version: 4.0.3
       prettier:
         specifier: ^3.8.2
         version: 3.8.2

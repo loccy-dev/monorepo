@@ -1,4 +1,4 @@
-import { parse, dirname, join, normalize, isAbsolute } from 'pathe'
+import { parse, dirname } from 'pathe'
 
 export function extractFileName(filePath: string, leaveExt = false) {
   const parsed = parse(filePath)
@@ -12,18 +12,6 @@ export function extractFileExt(filePath: string) {
 
 export function extractDirname(filePath: string): string {
   return dirname(filePath)
-}
-
-export function joinPaths(path1: string, path2: string) {
-  return join(path1, path2)
-}
-
-export function normalizePath(filePath: string) {
-  return normalize(filePath)
-}
-
-export function isAbsolutePath(filePath: string) {
-  return isAbsolute(filePath)
 }
 
 // Compute the static (non-glob) prefix shared across include patterns.

@@ -1,13 +1,11 @@
 import * as vscode from 'vscode'
-import { minimatch } from 'minimatch'
+import { matchesGlobs } from '@repo/shared/core/files/module-globs'
 import { DirectoryWatcherConfig } from './watcher.types'
-import { gitignoreHelper } from '../gitignore-helper'
 import { toRootRelative } from '../vscode-platform'
 import { Logger } from '../logger'
 
 /**
  * Watches a directory pattern and filters events based on include/exclude patterns.
- * Uses minimatch for pattern matching and respects gitignore rules.
  */
 export class DirectoryWatcher {
   private watcher: vscode.FileSystemWatcher
@@ -30,14 +28,10 @@ export class DirectoryWatcher {
   }
 
   /**
-   * Check if a URI matches the include/exclude patterns and gitignore rules
+   * Check if a URI matches the include/exclude patterns
    */
   private matchesPatterns(uri: vscode.Uri): boolean {
     if (uri.scheme !== 'file') {
-      return false
-    }
-
-    if (gitignoreHelper.isIgnored(uri)) {
       return false
     }
 
@@ -51,23 +45,7 @@ export class DirectoryWatcher {
       return false
     }
 
-    for (const pattern of this.config.excludePatterns) {
-      if (minimatch(relativePath, pattern, { dot: true })) {
-        return false
-      }
-    }
-
-    if (this.config.includePatterns.length === 0) {
-      return false
-    }
-
-    for (const pattern of this.config.includePatterns) {
-      if (minimatch(relativePath, pattern, { dot: true })) {
-        return true
-      }
-    }
-
-    return false
+    return matchesGlobs(relativePath, this.config.includePatterns, this.config.excludePatterns)
   }
 
   private async handleCreate(uri: vscode.Uri): Promise<void> {

@@ -14,6 +14,9 @@ import type { Locale } from './primitives.types'
 /** Filename for the project config (repo root). */
 export const loccyConfigFilename = 'loccy.yaml'
 
+/** Matches the config file and its legacy json predecessor, at any depth. */
+export const loccyConfigGlob = '**/loccy.{yaml,config.json}'
+
 /**
  * Keys to skip, formatted as `namespace:keypath` (or bare `keypath` when no namespace).
  * Matches the exact key; use `*` glob (e.g. `prefix.*`) to match everything under a prefix.

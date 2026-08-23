@@ -44,6 +44,19 @@ export function buildDecorations(
   const inline: vscode.DecorationOptions[] = []
   const preview: vscode.DecorationOptions[] = []
 
+  // one usage map per namespace on screen: the lookup walks every source file, the answer never
+  // differs between two ranges sharing a namespace
+  const usageMaps = new Map<string, ReturnType<typeof usageService.getPerKeypath>>()
+  const usageMapFor = (ns: string | undefined) => {
+    const key = ns ?? ''
+    let map = usageMaps.get(key)
+    if (!map) {
+      map = usageService.getPerKeypath(ns)
+      usageMaps.set(key, map)
+    }
+    return map
+  }
+
   for (let i = 0; i < ranges.length; i++) {
     const keypathRange = ranges[i]
     const keypath = keypathRange.keypaths[0]
@@ -65,7 +78,7 @@ export function buildDecorations(
     const lineEndPos = new vscode.Position(keypathStartPos.line, lines[keypathStartPos.line].length)
     const keypathInlineRange = new vscode.Range(keypathStartPos, keypathEndPos)
     const keypathLineEndRange = new vscode.Range(lineEndPos, lineEndPos)
-    const usageMap = usageService.getPerKeypath(keypathRange.ns)
+    const usageMap = usageMapFor(keypathRange.ns)
 
     const buildUsages = (keypath: string) => {
       const allUsagesOfKeypath = usageMap.get(keypath) ?? new Map<string, KeypathInfo[]>()

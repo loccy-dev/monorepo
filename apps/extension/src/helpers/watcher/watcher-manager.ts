@@ -5,9 +5,9 @@ import { ChangeQueue } from './change-queue'
 import { ErrorRecovery } from './error-recovery'
 import { ChangeType, WatcherManagerConfig } from './watcher.types'
 import { Logger } from '../logger'
-import { minimatch } from 'minimatch'
 import { cfg } from '../../global-config'
 import { DEFAULT_IGNORE_GLOBS } from '@repo/types/platform.types'
+import { matchesGlobs } from '@repo/shared/core/files/module-globs'
 import { toRootRelative } from '../vscode-platform'
 
 const DEBOUNCE_DELAY = 1000
@@ -161,8 +161,8 @@ export class WatcherManager {
         continue
       }
 
-      const isResource = this.matchesAnyPattern(relativePath, this.config.translationFilePatterns.include)
-      const isSource = this.matchesAnyPattern(relativePath, this.config.sourcePatterns.include)
+      const isResource = matchesGlobs(relativePath, this.config.translationFilePatterns.include)
+      const isSource = matchesGlobs(relativePath, this.config.sourcePatterns.include)
 
       if (isResource) {
         switch (change.type) {
@@ -262,20 +262,6 @@ export class WatcherManager {
     }
   }
 
-  private matchesAnyPattern(path: string, patterns: string[]): boolean {
-    if (patterns.length === 0) {
-      return false
-    }
-
-    for (const pattern of patterns) {
-      if (this.matchPattern(path, pattern)) {
-        return true
-      }
-    }
-
-    return false
-  }
-
   private buildGlobPattern(patterns: string[]): string {
     if (patterns.length === 0) {
       Logger.error('buildGlobPattern: no patterns provided, using generic glob')
@@ -288,10 +274,6 @@ export class WatcherManager {
 
     // in more complicated setup just watch all and filter on change
     return `**/*`
-  }
-
-  private matchPattern(path: string, pattern: string): boolean {
-    return minimatch(path, pattern)
   }
 
   private asRelativePath(uri: vscode.Uri): string {

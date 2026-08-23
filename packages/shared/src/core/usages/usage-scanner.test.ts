@@ -54,4 +54,13 @@ describe('UsageScanner.scan', () => {
     const result = await scan({ 'src/a.ts': 'const noop = 1\n' }, ['greeting.hello'])
     expect(result.perFile.has('src/a.ts')).toBe(false)
   })
+
+  it('skips sources git ignores', async () => {
+    const usage = "const x = t('greeting.hello')\n"
+    const result = await scan({ '.gitignore': 'generated/\n', 'src/a.ts': usage, 'generated/b.ts': usage }, [
+      'greeting.hello',
+    ])
+
+    expect([...result.perFile.keys()]).toEqual(['src/a.ts'])
+  })
 })

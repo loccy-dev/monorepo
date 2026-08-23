@@ -9,7 +9,6 @@ export enum TelemetryEvent {
   detectResources = 'detectResources', // {locales: "en,ru,fr"}
 
   // to understand the timing of errors
-  initGitignore = 'initGitignore',
   initConfig = 'initConfig',
   initFileResolver = 'initFileResolver',
   initResourceService = 'initResourceService',

@@ -14,6 +14,10 @@ export const DEFAULT_IGNORE_GLOBS = [
   '**/.next/**',
   '**/.nuxt/**',
   '**/.output/**',
+  '**/.svelte-kit/**',
+  '**/.vercel/**',
+  '**/.turbo/**',
+  '**/coverage/**',
 ]
 
 // Platform abstraction for cross-environment support
@@ -26,14 +30,6 @@ export interface Platform {
   /** Missing file is not an error: the point is that it is gone afterwards. */
   deleteFile(relativePath: string): Promise<void>
   exists(relativePath: string): Promise<boolean>
-  findFiles(patterns: string[], exclude?: string[], options?: FindFilesOptions): Promise<string[]>
-}
-
-export interface FindFilesOptions {
-  /**
-   * Read every `.gitignore` in the tree and honour it. Costs a full walk of the project before the
-   * patterns are matched at all, so it is worth it only for a search already sweeping the sources,
-   * never for files the config names outright. Not every platform can offer it.
-   */
-  respectGitignore?: boolean
+  /** `exclude` adds to `DEFAULT_IGNORE_GLOBS`, which every adapter applies on its own. */
+  findFiles(patterns: string[], exclude?: string[]): Promise<string[]>
 }

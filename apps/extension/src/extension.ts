@@ -18,7 +18,6 @@ import {
 import { createConfigFileCmd } from './commands/create-config-file-cmd'
 import { openConfigCmd } from './commands/open-config-cmd'
 import { fileResolver, FileType } from './helpers/file-resolver'
-import { gitignoreHelper } from './helpers/gitignore-helper'
 import { insertExistingMessageCmd } from './commands/insert-existing-message-cmd'
 import { TelemetryEvent } from './telemetry/events'
 import { openLocCmd } from './hover/open-loc-cmd'
@@ -105,9 +104,6 @@ export async function activate(context: vscode.ExtensionContext) {
     setInstallationDate(context)
   }
   reportEvent(TelemetryEvent.launch, undefined)
-
-  await gitignoreHelper.init()
-  reportEvent(TelemetryEvent.initGitignore)
 
   // auth
   initializeAuth(context)

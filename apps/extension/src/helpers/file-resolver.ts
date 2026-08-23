@@ -1,9 +1,11 @@
 import * as vscode from 'vscode'
 import { handleError, handleErrorDebounced } from './error-handler'
-import { gitignoreHelper } from './gitignore-helper'
-import { minimatch } from 'minimatch'
 import { getResourceFormatByExt } from '@repo/shared/core/registry'
-import { getLoccyRoot, toRootRelative } from './vscode-platform'
+import { Gitignore } from '@repo/shared/core/files/gitignore'
+import { matchesGlobs } from '@repo/shared/core/files/module-globs'
+import { loccyConfigGlob } from '@repo/types/config.types'
+import { DEFAULT_IGNORE_GLOBS } from '@repo/types/platform.types'
+import { createVscodePlatform, findFilesUnder, getLoccyRoot, toRootRelative } from './vscode-platform'
 
 export enum FileType {
   Resource = 'Resource',
@@ -18,6 +20,8 @@ class FileResolver {
   private translationExcludePaths: string[] = []
   private usagesIncludePaths: string[] = []
   private usagesExcludePaths: string[] = []
+  /** Sources only: a generated, gitignored resource file is still ours to manage. */
+  private gitignore = Gitignore.empty()
 
   async init(
     translationIncludePaths: string[],
@@ -29,6 +33,7 @@ class FileResolver {
     this.translationExcludePaths = translationExcludePaths
     this.usagesIncludePaths = usagesIncludePaths
     this.usagesExcludePaths = usagesExcludePaths
+    this.gitignore = await this.loadGitignore()
 
     this.translationFileUris = await this.getResourceFileUris()
     this.srcFileUris = await this.getSrcFileUris()
@@ -44,33 +49,7 @@ class FileResolver {
       return []
     }
 
-    const includePatterns = include
-    const excludePatterns = ['**/node_modules/**', ...exclude]
-
-    const excludeGlob =
-      excludePatterns.length > 0
-        ? excludePatterns.length > 1
-          ? `{${excludePatterns.join(',')}}`
-          : excludePatterns[0]
-        : undefined
-
-    // Process each include pattern separately to avoid nested alternate groups
-    const allFilesMap = new Map<string, vscode.Uri>()
-
-    for (const includePattern of includePatterns) {
-      const files = await vscode.workspace.findFiles(new vscode.RelativePattern(root, includePattern), excludeGlob)
-      for (const file of files) {
-        allFilesMap.set(file.toString(), file)
-      }
-    }
-
-    const allFiles = Array.from(allFilesMap.values())
-
-    const filteredFiles = allFiles.filter((uri) => {
-      return !gitignoreHelper.isIgnored(uri)
-    })
-
-    return filteredFiles
+    return findFilesUnder(root, include, exclude)
   }
 
   async readFile(uri: vscode.Uri) {
@@ -97,7 +76,7 @@ class FileResolver {
     try {
       const uris = await this.getFileUris(this.translationIncludePaths, [
         ...this.translationExcludePaths,
-        '**/loccy.{yaml,config.json}',
+        loccyConfigGlob,
       ])
       const filteredUris: vscode.Uri[] = []
       for (const uri of uris) {
@@ -127,11 +106,11 @@ class FileResolver {
 
   private async getSrcFileUris() {
     try {
-      const uris = await this.getFileUris(this.usagesIncludePaths, [
-        ...this.usagesExcludePaths,
-        '**/loccy.{yaml,config.json}',
-      ])
-      return uris
+      const uris = await this.getFileUris(this.usagesIncludePaths, [...this.usagesExcludePaths, loccyConfigGlob])
+      return uris.filter((uri) => {
+        const relativePath = toRootRelative(uri)
+        return relativePath !== null && !this.gitignore.isIgnored(relativePath)
+      })
     } catch (e) {
       handleError({
         internal: 'getResourcePaths: failed to find resource files',
@@ -141,11 +120,17 @@ class FileResolver {
     }
   }
 
-  checkFileType(uri: vscode.Uri): FileType | undefined {
-    if (gitignoreHelper.isIgnored(uri)) {
-      return
+  private async loadGitignore() {
+    try {
+      const platform = await createVscodePlatform()
+      return platform ? await Gitignore.load(platform) : Gitignore.empty()
+    } catch (e) {
+      handleError({ internal: 'loadGitignore: failed to read .gitignore files', e })
+      return Gitignore.empty()
     }
+  }
 
+  checkFileType(uri: vscode.Uri): FileType | undefined {
     // First check cached paths
     if (this.translationFileUris.find((u) => u.toString() === uri.toString())) {
       return FileType.Resource
@@ -172,10 +157,6 @@ class FileResolver {
   }
 
   shouldTrackFile(uri: vscode.Uri, type: FileType): boolean {
-    if (gitignoreHelper.isIgnored(uri)) {
-      return false
-    }
-
     const relativePath = toRootRelative(uri)
     if (!relativePath) {
       return false
@@ -191,55 +172,16 @@ class FileResolver {
   }
 
   private matchesResourcePattern(relativePath: string): boolean {
-    try {
-      const excludePatterns = [...this.translationExcludePaths, '**/loccy.config.{yaml,json}', '**/node_modules/**']
-
-      if (this.matchesAnyPattern(relativePath, excludePatterns)) {
-        return false
-      }
-
-      const includePatterns = this.translationIncludePaths
-      return this.matchesAnyPattern(relativePath, includePatterns)
-    } catch (e) {
-      handleError({
-        internal: `Error checking resource pattern for: ${relativePath}`,
-        e,
-      })
-      return false
-    }
+    const exclude = [...this.translationExcludePaths, loccyConfigGlob, ...DEFAULT_IGNORE_GLOBS]
+    return matchesGlobs(relativePath, this.translationIncludePaths, exclude)
   }
 
   private matchesSourcePattern(relativePath: string): boolean {
-    try {
-      const excludePatterns = [...this.usagesExcludePaths, '**/loccy.config.{yaml,json}', '**/node_modules/**']
-
-      if (this.matchesAnyPattern(relativePath, excludePatterns)) {
-        return false
-      }
-
-      const includePatterns = this.usagesIncludePaths
-      return this.matchesAnyPattern(relativePath, includePatterns)
-    } catch (e) {
-      handleError({
-        internal: `Error checking source pattern for: ${relativePath}`,
-        e,
-      })
+    if (this.gitignore.isIgnored(relativePath)) {
       return false
     }
-  }
-
-  private matchesAnyPattern(relativePath: string, patterns: string[]): boolean {
-    return patterns.some((pattern) => {
-      try {
-        return minimatch(relativePath, pattern)
-      } catch (e) {
-        handleError({
-          internal: `Error matching pattern '${pattern}' against '${relativePath}'`,
-          e,
-        })
-        return false
-      }
-    })
+    const exclude = [...this.usagesExcludePaths, loccyConfigGlob, ...DEFAULT_IGNORE_GLOBS]
+    return matchesGlobs(relativePath, this.usagesIncludePaths, exclude)
   }
 
   public handleFileDelete(uri: vscode.Uri) {

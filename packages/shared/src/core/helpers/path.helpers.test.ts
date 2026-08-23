@@ -5,9 +5,6 @@ import {
   extractFileExt,
   extractFileName,
   filePathToSegments,
-  isAbsolutePath,
-  joinPaths,
-  normalizePath,
 } from './path.helpers'
 
 describe('extractFileName', () => {
@@ -53,36 +50,6 @@ describe('extractDirname', () => {
 
   it('returns "/" for a top-level absolute path', () => {
     expect(extractDirname('/common.json')).toBe('/')
-  })
-})
-
-describe('joinPaths', () => {
-  it('joins two path segments', () => {
-    expect(joinPaths('a/b', 'c.json')).toBe('a/b/c.json')
-  })
-
-  it('resolves ".." segments', () => {
-    expect(joinPaths('a/b', '../c.json')).toBe('a/c.json')
-  })
-})
-
-describe('normalizePath', () => {
-  it('resolves "." and ".." segments', () => {
-    expect(normalizePath('a/./b/../c')).toBe('a/c')
-  })
-
-  it('collapses duplicate slashes', () => {
-    expect(normalizePath('a//b')).toBe('a/b')
-  })
-})
-
-describe('isAbsolutePath', () => {
-  it('returns true for an absolute path', () => {
-    expect(isAbsolutePath('/a/b')).toBe(true)
-  })
-
-  it('returns false for a relative path', () => {
-    expect(isAbsolutePath('a/b')).toBe(false)
   })
 })
 

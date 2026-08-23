@@ -2,11 +2,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dirname, join } from 'pathe'
-import type { LoccyConfig } from '@repo/types/config.types'
 import { baseProject, cleanupProject, makeProject, projectPath, writeProjectFile } from '../test/project'
 import { run } from '../test/run-cli'
 import { buildProgram } from '../program'
-import { moduleOwning } from './hook'
 
 afterEach(cleanupProject)
 
@@ -265,38 +263,5 @@ describe('the translation-file guard', () => {
     baseProject()
     const { out, code, crashed } = await run(['hook-pre-edit'], input)
     expect({ out, code, crashed }).toEqual({ out: '', code: 0, crashed: false })
-  })
-})
-
-describe('moduleOwning', () => {
-  const config = {
-    modules: {
-      default: { translations: { glob: 'locales/**/*.json', exclude: ['locales/generated/**'] } },
-      admin: { translations: { glob: 'admin/i18n/*.yaml' } },
-    },
-  } as unknown as LoccyConfig
-
-  it('names the module whose glob covers the file', () => {
-    expect(moduleOwning(config, 'locales/en.json')).toBe('default')
-    expect(moduleOwning(config, 'admin/i18n/de.yaml')).toBe('admin')
-  })
-
-  it('leaves source files alone', () => {
-    expect(moduleOwning(config, 'src/LoginForm.tsx')).toBe(null)
-  })
-
-  it('respects the module exclude', () => {
-    expect(moduleOwning(config, 'locales/generated/en.json')).toBe(null)
-  })
-
-  // The guard only asks whether some module claims the file, so first declared is answer enough.
-  it('takes the first module declared where two globs both cover the file', () => {
-    const overlapping = {
-      modules: {
-        first: { translations: { glob: 'locales/**/*.json' } },
-        second: { translations: { glob: 'locales/en.json' } },
-      },
-    } as unknown as LoccyConfig
-    expect(moduleOwning(overlapping, 'locales/en.json')).toBe('first')
   })
 })

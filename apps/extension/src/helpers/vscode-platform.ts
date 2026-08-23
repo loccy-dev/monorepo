@@ -3,9 +3,10 @@
 
 import * as vscode from 'vscode'
 import { DEFAULT_IGNORE_GLOBS, type Platform } from '@repo/types/platform.types'
+import { loccyConfigGlob } from '@repo/types/config.types'
 import { detectTranslationsLocation } from '@repo/shared/core/loccy-config/defaults-detection/detect-translations-location'
+import { matchesGlobs } from '@repo/shared/core/files/module-globs'
 
-const CONFIG_GLOB = '**/loccy.{yaml,config.json}'
 const NODE_MODULES_GLOB = '**/node_modules/**'
 
 let rootPromise: Promise<vscode.Uri | null> | null = null
@@ -51,7 +52,10 @@ async function resolveRoot(): Promise<vscode.Uri | null> {
 
   // 1st try - the directory holding a loccy config, shallowest first
   for (const folder of folders) {
-    const configs = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, CONFIG_GLOB), NODE_MODULES_GLOB)
+    const configs = await vscode.workspace.findFiles(
+      new vscode.RelativePattern(folder, loccyConfigGlob),
+      NODE_MODULES_GLOB,
+    )
     const shallowest = configs.sort((a, b) => a.path.split('/').length - b.path.split('/').length)[0]
     if (shallowest) {
       return vscode.Uri.joinPath(shallowest, '..')
@@ -74,10 +78,30 @@ async function resolveRoot(): Promise<vscode.Uri | null> {
   return folders[0].uri
 }
 
+/**
+ * Search one pattern at a time and match the excludes here: vscode's search rejects a glob with
+ * nested alternate groups (`{a,{b,c}}`), which joining patterns into one group inevitably builds.
+ */
+export async function findFilesUnder(root: vscode.Uri, patterns: string[], exclude: string[]): Promise<vscode.Uri[]> {
+  const excludes = [...DEFAULT_IGNORE_GLOBS, ...exclude]
+  const found = new Map<string, vscode.Uri>()
+
+  for (const pattern of patterns) {
+    const uris = await vscode.workspace.findFiles(new vscode.RelativePattern(root, pattern), NODE_MODULES_GLOB)
+    for (const uri of uris) {
+      const relativePath = relativeTo(root, uri)
+      if (relativePath && !matchesGlobs(relativePath, excludes)) {
+        found.set(uri.toString(), uri)
+      }
+    }
+  }
+
+  return [...found.values()]
+}
+
 /** Build a `Platform` rooted at `root`; its globs and returned paths are scoped to that directory. */
 function createPlatform(root: vscode.Uri): Platform {
   const toUri = (relativePath: string) => vscode.Uri.joinPath(root, relativePath)
-  const brace = (globs: string[]) => (globs.length === 1 ? globs[0]! : `{${globs.join(',')}}`)
 
   return {
     rootPath: root.fsPath,
@@ -110,12 +134,7 @@ function createPlatform(root: vscode.Uri): Platform {
     },
 
     async findFiles(patterns, exclude) {
-      if (!patterns.length) {
-        return []
-      }
-      const include = new vscode.RelativePattern(root, brace(patterns))
-      const excludePattern = brace([...DEFAULT_IGNORE_GLOBS, ...(exclude ?? [])])
-      const uris = await vscode.workspace.findFiles(include, excludePattern)
+      const uris = await findFilesUnder(root, patterns, exclude ?? [])
       return uris.map((uri) => relativeTo(root, uri)).filter((path): path is string => path !== null)
     },
   }
