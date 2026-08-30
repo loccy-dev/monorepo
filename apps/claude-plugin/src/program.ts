@@ -7,7 +7,7 @@ import { searchCommand } from './commands/search'
 import { upsertMessageCommand } from './commands/upsert-message'
 import { removeMessageCommand } from './commands/remove-message'
 import { renameKeyCommand } from './commands/rename-key'
-import { styleguideCommand, styleguideExampleCommand } from './commands/styleguide'
+import { styleguideExampleCommand } from './commands/styleguide'
 import { preEditHook, sessionStartHook, subagentStartHook } from './commands/hook'
 import { workflow } from './tool-commands'
 
@@ -116,10 +116,7 @@ export function buildProgram(): Command {
     program
       .command('upsert-message')
       .description('Add or update keys across locale files, multiple locales in one call')
-      .option(
-        '--styleguided <token>',
-        'Confirm the rules were read. `loccy-tool styleguide` prints them and the token that goes here',
-      ),
+      .option('--styleguided <token>', "The token standing for this project's writing rules"),
   )
     .addHelpText(
       'after',
@@ -130,8 +127,7 @@ export function buildProgram(): Command {
         '  EOF\n\n' +
         'Only the locales you pass are written. "" deletes the key\n' +
         'from that locale:\n\n' +
-        '  {"login.ok":{"en":"Success","en-US":""}}\n\n' +
-        'Run `loccy-tool styleguide` before the first call and read it in full',
+        '  {"login.ok":{"en":"Success","en-US":""}}\n\n',
     )
     .action(upsertMessageCommand)
 
@@ -161,19 +157,6 @@ export function buildProgram(): Command {
         '\nLinked references between messages (`@:old.key`) follow the rename.',
     )
     .action(renameKeyCommand)
-
-  // No --module: one styleguide governs the project, whatever modules it splits its messages into.
-  program
-    .command('styleguide')
-    .description("The project's writing rules in full. Read all of it, never a slice")
-    .addHelpText(
-      'after',
-      '\nRead the output whole, and again whenever the rules may have moved: a write is checked against\n' +
-        'these rules, and only what is in context can be written against. Piping this through head, tail\n' +
-        'or grep keeps the token at the end and drops the rules it stands for, leaving the next write\n' +
-        'confirming something nobody read.',
-    )
-    .action(styleguideCommand)
 
   // Hidden: authoring a styleguide is what the skill is for, and a session that is not doing it has
   // no use for an example of one.

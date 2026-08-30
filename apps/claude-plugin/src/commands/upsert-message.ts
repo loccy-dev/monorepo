@@ -1,4 +1,5 @@
 import type { LocalizedText } from '@repo/types/primitives.types'
+import { join } from 'pathe'
 import { loccyConfigFilename, type StyleguideConfig } from '@repo/types/config.types'
 import { renderStyleguideYaml } from '@repo/shared/core/loccy-config/config-templates'
 import { findRedundantOverrides, primaryLocales } from '@repo/shared/core/loccy-config/regional-override-guards'
@@ -14,9 +15,10 @@ import {
   type ModuleContext,
 } from '../context'
 import { collapsePaths } from '../file-list'
+import { findProjectRoot } from '../project-root'
 import { failOnStructuralCollision } from '../keypath-guards'
 import { refuseOnce } from '../retry-window'
-import { hasStyleguideRules, styleguideToken } from '../styleguide-output'
+import { hasStyleguideRules, styleguideBriefing, styleguideToken } from '../styleguide-output'
 import { readStdin } from '../stdin'
 import { writeAllOrNothing } from '../write'
 
@@ -162,13 +164,6 @@ async function terminologyChecked(ctx: ModuleContext, ns: string, entries: Entry
   return false
 }
 
-/** Points at the rules rather than reprinting them: that command is what hands out the token. */
-function printStyleguideReview(): void {
-  console.log('\n  loccy-tool styleguide')
-  console.log('\nThat prints the rules this project writes by, and the token. Check the values against them,')
-  console.log('then rerun with --styleguided <token>.')
-}
-
 /** Every line of a rule sits under its locale, so a rule of any length stays one visual block. */
 function indented(text: string): string {
   return text
@@ -223,7 +218,7 @@ function printTemplate(ctx: ModuleContext): void {
   printLocaleRules(ctx)
 }
 
-/** Add or update keys across locale files. Points at the styleguide and writes nothing until confirmed. */
+/** Add or update keys across locale files. Prints the styleguide first, and writes nothing until confirmed. */
 export async function upsertMessageCommand(options: KeyOptions & { styleguided?: string }): Promise<void> {
   const raw = await readStdin()
   const ctx = await loadModuleContext(options)
@@ -242,32 +237,32 @@ export async function upsertMessageCommand(options: KeyOptions & { styleguided?:
   )
   enforceGuards(ctx, ns, entries)
 
-  // A styleguide with no rules has nothing to check against, so demanding the handshake would only
-  // cost a round trip.
-  if (hasStyleguideRules(ctx.config) && !confirmed(ctx, options.styleguided)) return
+  if (!confirmed(ctx, options.styleguided)) return
   if (!(await terminologyChecked(ctx, ns, entries))) return
 
   await applyEntries(ctx, ns, entries)
 }
 
 /**
- * Whether the caller has been shown the rules this write is checked against. A stale token means the
- * styleguide moved since it was issued, which is the one case worth distinguishing: the caller did
- * read rules, just not the ones in force now.
+ * Whether this call carries the rules it is checked against. The token is issued only alongside the
+ * rules in full, so holding one means they are in context: a caller that never saw them cannot
+ * produce it, and neither can one whose context no longer holds them.
+ *
+ * A stale token is worth telling apart: that caller did read rules, just not the ones in force now.
  */
 function confirmed(ctx: ModuleContext, token: string | undefined): boolean {
-  const expected = styleguideToken(ctx.config)
-  if (token === expected) return true
+  // Nothing to check against, so demanding a token would only cost a round trip.
+  if (!hasStyleguideRules(ctx.config)) return true
+  if (token === styleguideToken(ctx.config)) return true
 
   // Nothing records which tokens were ever handed out, so this cannot claim the rules changed:
   // a token from another project has never been issued here at all.
-  if (token) {
-    console.log(`\n[nothing written yet] token ${token} does not match this project's styleguide as it stands.`)
-    console.log('Either the rules changed since it was issued, or it came from somewhere else.')
-  } else {
-    console.log('\n[nothing written yet] this call carries no --styleguided token.')
-  }
-  printStyleguideReview()
+  const headline = token
+    ? `[nothing written yet] token ${token} is not this project's styleguide as it stands, so here it is as it now reads.`
+    : `[nothing written yet] the rules this project writes by, as authored in ${loccyConfigFilename}.`
+
+  const configPath = join(findProjectRoot(process.cwd()), loccyConfigFilename)
+  console.log(styleguideBriefing(ctx.config, ctx.rm.allLocales, configPath, headline))
   return false
 }
 

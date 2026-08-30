@@ -60,29 +60,27 @@ Every command needs --module, since this project has more than one.`)
     expect(JSON.parse(out).hookSpecificOutput.additionalContext).not.toContain('--module')
   })
 
-  it('reads the styleguide without a module, since one governs the whole project', async () => {
+  it('takes one token in either module, since one styleguide governs them both', async () => {
     baseProject(`${TWO_MODULES}
 styleguide:
   mechanics: |
     Keep every label under 25 characters.
 `)
-    const { out, code } = await run(['styleguide'])
-    expect(code).toBe(0)
-    expect(out.replace(/--styleguided [0-9a-f]{8}/, '--styleguided <token>'))
-      .toBe(`# Styleguide, as authored in loccy.yaml
+    writeProjectFile('mail/en.json', JSON.stringify({ welcome: { subject: 'Hello there' } }))
 
-styleguide:
-  mechanics: |
-    Keep every label under 25 characters.
+    const briefing = await run(['upsert-message', '--module', 'app'], '{"login.sub":{"en":"Welcome"}}')
+    expect(briefing.out).toContain('Keep every label under 25 characters.')
+    const token = briefing.out.match(/--styleguided ([0-9a-f]{8})/)![1]!
 
-## Writing against these rules
+    const app = await run(['upsert-message', '--module', 'app', '--styleguided', token], '{"login.sub":{"en":"Hi"}}')
+    expect(app.out).toBe('wrote 1 key to locales/en.json')
 
-  loccy-tool upsert-message --styleguided <token> <<'EOF'
-  {"<keypath>": {"<locale>": "<text>"}}
-  EOF
-
-The token above says these rules were read. It is derived from them, not issued per write, so the
-same token confirms every write until the rules change. Once you read the full styleguide, pass it always.`)
+    // The rules are the project's, so reading them once answers for every module that writes.
+    const mail = await run(
+      ['upsert-message', '--module', 'emails', '--styleguided', token],
+      '{"welcome.body":{"en":"Hi"}}',
+    )
+    expect(mail.out).toBe('wrote 1 key to mail/en.json')
   })
 
   it('names the module the flag asks for, and refuses one that does not exist', async () => {

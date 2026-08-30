@@ -67,9 +67,22 @@ describe('refuseOnce', () => {
     mkdirSync(join(tmpdir(), 'loccy-tool-guard'), { recursive: true })
     const stray = mkdtempSync(join(tmpdir(), 'loccy-tool-guard', 'stray-'))
 
+    afterTheWindow()
     await refuseOnce(scope(), 'a batch')
 
     expect(existsSync(stray)).toBe(false)
+  })
+
+  // A directory is made a moment before the marker that goes in it. Taking it in that moment loses
+  // the refusal, and the attempt it was refusing writes as though nothing had been said.
+  it('leaves a scope directory another call has only just made, empty as it still is', async () => {
+    mkdirSync(join(tmpdir(), 'loccy-tool-guard'), { recursive: true })
+    const beingFilled = mkdtempSync(join(tmpdir(), 'loccy-tool-guard', 'stray-'))
+
+    await refuseOnce(scope(), 'a batch')
+
+    expect(existsSync(beingFilled)).toBe(true)
+    rmSync(beingFilled, { recursive: true, force: true })
   })
 
   // Failing closed would refuse every attempt for the rest of the session, with no way to get past.

@@ -63,6 +63,19 @@ describe('checkGlossary', () => {
     expect(checkGlossary({ en: 'Booking confirmed', de: 'Reservierung bestätigt' }, deprecating)).toEqual(['en'])
   })
 
+  it('holds the preferred spelling clear of a deprecated form it differs from only by case', () => {
+    const casing = {
+      glossary: [
+        {
+          definition: 'The wireless network guests connect to',
+          terms: { en: { preferred: 'Wi-Fi', deprecated: ['WiFi', 'Wifi', 'wi-fi'] }, de: 'WLAN' },
+        },
+      ],
+    }
+    expect(checkGlossary({ en: 'Wi-Fi password', de: 'WLAN-Passwort' }, casing)).toEqual([])
+    expect(checkGlossary({ en: 'wi-fi password', de: 'WLAN-Passwort' }, casing)).toEqual(['en'])
+  })
+
   it('says nothing about a locale the entry gives no term for', () => {
     const enOnly = { glossary: [{ definition: 'A table booking', terms: { en: 'Reservation' } }] }
     expect(checkGlossary({ en: 'Reservation confirmed', de: 'Tisch bestätigt' }, enOnly)).toEqual([])

@@ -4,60 +4,64 @@ import { run } from '../test/run-cli'
 
 afterEach(cleanupProject)
 
-/** The handshake, which every printing of the rules closes on. `<token>` stands for the hash. */
-const HANDSHAKE = `
-## Writing against these rules
+/** What every briefing closes on. `<token>` stands for the hash, which is the rules themselves. */
+const RETRY =
+  'Check the values against these rules, then repeat the call with --styleguided <token>' +
+  ' (same token on every write until the rules change).'
 
-  loccy-tool upsert-message --styleguided <token> <<'EOF'
-  {"<keypath>": {"<locale>": "<text>"}}
-  EOF
+/** The headline a write with no token is answered with. */
+const HEADLINE = '[nothing written yet] the rules this project writes by, as authored in loccy.yaml.'
 
-The token above says these rules were read. It is derived from them, not issued per write, so the
-same token confirms every write until the rules change. Once you read the full styleguide, pass it always.`
-
-/** The token is a hash of the rules, so it is the one part of this output that cannot be spelled out. */
-function withoutToken(out: string): string {
-  return out.replace(/--styleguided [0-9a-f]{8}/, '--styleguided <token>')
+/**
+ * The rules reach a session as the answer to a write, so a write is how they are asked for. The
+ * config is named by its full path, which a throwaway project only knows at run time.
+ */
+async function briefing(): Promise<{ out: string; code: number; crashed: boolean }> {
+  const result = await run(['upsert-message'], '{"login.sub":{"en":"Welcome"}}')
+  return {
+    ...result,
+    out: result.out
+      .replace(/Full entries: \S+/, 'Full entries: <project>/loccy.yaml')
+      .replace(/--styleguided [0-9a-f]{8}/, '--styleguided <token>'),
+  }
 }
 
-describe('styleguide', () => {
-  it('offers to author one where the project has no rules, rather than printing an empty section', async () => {
+describe('the styleguide briefing', () => {
+  it('says nothing where the project has no rules, rather than printing an empty section', async () => {
     baseProject()
-    const { out, code } = await run(['styleguide'])
+    const { out, code } = await briefing()
 
     expect(code).toBe(0)
-    expect(out).toBe(`No styleguide in loccy.yaml yet, so nothing constrains the copy beyond the corpus itself.
-
-Match the tone of the existing messages, and offer to author one if the user keeps correcting the
-same things: the author-styleguide skill covers it.`)
+    expect(out).toBe('wrote 1 key to locales/en.json')
   })
 
-  it('prints the rules whole, and closes on the write form the token spells', async () => {
+  it('prints the rules whole, and closes on the call that writes them', async () => {
     baseProject(`${CONFIG}
 styleguide:
   voice: Friendly.
 `)
-    const { out, code } = await run(['styleguide'])
+    const { out, code } = await briefing()
 
     expect(code).toBe(0)
-    expect(withoutToken(out)).toBe(`# Styleguide, as authored in loccy.yaml
+    expect(out).toBe(`${HEADLINE}
 
 styleguide:
   voice: Friendly.
-${HANDSHAKE}`)
+
+${RETRY}`)
   })
 
-  it('prints a styleguide example this very tool reads back, so it cannot drift from the schema', async () => {
+  it('renders a styleguide example this very tool reads back, so it cannot drift from the schema', async () => {
     baseProject()
     const example = await run(['styleguide-example'])
     expect(example.code).toBe(0)
 
     writeProjectFile('loccy.yaml', `${CONFIG}${example.out}`)
-    const rendered = await run(['styleguide'])
+    const { out } = await briefing()
 
-    // Every field, down the nesting and past the locales this project happens to have: a per-locale
-    // glossary override is what a rendering scoped to a write drops.
-    expect(withoutToken(rendered.out)).toBe(`# Styleguide, as authored in loccy.yaml
+    // Every prose field down the nesting, then every governed term on a line of its own: the
+    // per-locale forms and the deprecated spellings are what the one-line rendering leaves behind.
+    expect(out).toBe(`${HEADLINE}
 
 styleguide:
   product: |
@@ -81,31 +85,68 @@ styleguide:
       style: |
         Replace ß with ss (schliessen).
         Use Swiss guillemets «…».
-  doNotTranslate:
-    - term: Whisker Café
-      caseSensitive: true
-      definition: Café brand name
-    - term: Mister Mittens
+  keys: |
+    Group keys by feature, dot-separated ("checkout.button.submit").
+
+## Terminology
+
+  Resident: A cat that lives at the café
+  Shift: One staff member's working block, opening to closing handover
+  Reservation: A booked seating slot (the booking itself, not the act of reserving)
+  Whisker Café (never translated): Café brand name
+  Mister Mittens (never translated)
+
+Full entries: <project>/loccy.yaml
+
+${RETRY}`)
+  })
+})
+
+describe('a term with no form in the locales that carry their own value', () => {
+  it('names an entry by the most widely spoken locale it has a form for', async () => {
+    baseProject(`${CONFIG}
+styleguide:
   glossary:
+    - definition: One staff member's working block
+      terms:
+        de: Schicht
     - definition: A cat that lives at the café
       terms:
         en: Resident
         de: Bewohner
-    - definition: One staff member's working block, opening to closing handover
+`)
+    const { out } = await briefing()
+
+    // English outranks German where the entry has both, and stands aside where it has no form at all.
+    expect(out).toBe(`${HEADLINE}
+
+## Terminology
+
+  Schicht: One staff member's working block
+  Resident: A cat that lives at the café
+
+Full entries: <project>/loccy.yaml
+
+${RETRY}`)
+  })
+
+  it('passes over an entry no locale of this project has a form for', async () => {
+    baseProject(`${CONFIG}
+styleguide:
+  voice: Friendly.
+  glossary:
+    - definition: A booked seating slot
       terms:
-        en: Shift
-        de: Schicht
-    - definition: A booked seating slot (the booking itself, not the act of reserving)
-      terms:
-        en: Reservation
-        de: Reservierung
-        de-CH:
-          preferred: Reservation
-          deprecated:
-            - Buchung
-  keys: |
-    Group keys by feature, dot-separated ("checkout.button.submit").
-${HANDSHAKE}`)
+        fr: Réservation
+`)
+    const { out } = await briefing()
+
+    expect(out).toBe(`${HEADLINE}
+
+styleguide:
+  voice: Friendly.
+
+${RETRY}`)
   })
 })
 
@@ -121,10 +162,12 @@ styleguide:
 
   it('names what it dropped and why, and keeps the rules that do load', async () => {
     baseProject(BROKEN)
-    const { out, code } = await run(['styleguide'])
+    const { out, code } = await briefing()
 
     expect(code).toBe(0)
-    expect(withoutToken(out)).toBe(`## Styleguide fields ignored
+    expect(out).toBe(`${HEADLINE}
+
+## Styleguide fields ignored
 
 loccy.yaml spells these in a shape the schema cannot take, so they were dropped and
 nothing is checked against them. Tell the user, and offer to fix them:
@@ -132,11 +175,10 @@ nothing is checked against them. Tell the user, and offer to fix them:
   glossary: 0.definition: Required
   code: renamed to keys
 
-# Styleguide, as authored in loccy.yaml
-
 styleguide:
   voice: Friendly.
-${HANDSHAKE}`)
+
+${RETRY}`)
   })
 
   it('says so at session start, so nothing is written against rules that never loaded', async () => {
@@ -161,21 +203,22 @@ styleguide:
     de-AT:
       extends: de
 `)
-    const { out } = await run(['styleguide'])
+    const { out } = await briefing()
 
-    expect(withoutToken(out)).toBe(`## Styleguide fields ignored
+    expect(out).toBe(`${HEADLINE}
+
+## Styleguide fields ignored
 
 loccy.yaml spells these in a shape the schema cannot take, so they were dropped and
 nothing is checked against them. Tell the user, and offer to fix them:
 
   localeRules.de: "de" cannot extend itself
 
-# Styleguide, as authored in loccy.yaml
-
 styleguide:
   localeRules:
     de-AT:
       extends: de
-${HANDSHAKE}`)
+
+${RETRY}`)
   })
 })

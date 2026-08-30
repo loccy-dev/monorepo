@@ -81,7 +81,6 @@ remove leaves references behind for you to update.
   upsert-message           add or update keys across every locale (JSON on stdin)
   remove-message <key...>  remove keys from every locale
   rename-key               rename across locales and linked refs, source untouched (JSON on stdin)
-  styleguide               the writing rules, read whole before adding/editing translations
 
 Never pipe output through head, tail or grep. Every output is meant to be read whole.
 

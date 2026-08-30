@@ -5,7 +5,7 @@ import { run } from '../test/run-cli'
 afterEach(cleanupProject)
 
 describe('a project with no config', () => {
-  it.each([['search', 'a'], ['styleguide'], ['upsert-message']])(
+  it.each([['search', 'a'], ['upsert-message']])(
     'points %s at init rather than guessing the setup',
     async (...argv) => {
       makeProject({ 'locales/en.json': '{}' })

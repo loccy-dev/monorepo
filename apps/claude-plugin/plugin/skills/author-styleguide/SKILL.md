@@ -21,7 +21,7 @@ Config schema: https://loccy.dev/schemas/config.schema.json
 | `localeRules.<code>` | 1-3 short rules with examples do/don't |
 | `doNotTranslate` | 1-5 terms |
 | `glossary` | scales with the corpus: 5-10 entries around 200 keys, 20-30 around 3000 |
-| `keys` | 1 sentence or if nothing special to define better to omit |
+| `keys` | 1 sentence, and only for a rule the existing keys don't already give away. Omit where there is none |
 
 Well over that usually means rules were invented rather than observed, when creating from scratch.
 

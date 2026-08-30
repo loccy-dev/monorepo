@@ -20,7 +20,6 @@ const COMMANDS: ToolCommand[] = [
     summary: 'remove keys from every locale',
   },
   { usage: 'rename-key', summary: 'rename across locales and linked refs, source untouched (JSON on stdin)' },
-  { usage: 'styleguide', summary: 'the writing rules, read whole before adding/editing translations' },
 ]
 
 const WIDTH = Math.max(...COMMANDS.map((command) => command.usage.length))

@@ -25,7 +25,15 @@ async function pruneClosed(dir: string): Promise<void> {
   }
 
   for (const name of await readdir(MARKERS).catch(() => [])) {
-    await rmdir(join(MARKERS, name)).catch(() => {})
+    const scope = join(MARKERS, name)
+    try {
+      // Never one still being filled: a scope directory is created a moment before the marker that
+      // goes in it, and taking it in between would lose the refusal and let that attempt through.
+      if (Date.now() - statSync(scope).mtimeMs < UNLOCK_MS) continue
+      await rmdir(scope)
+    } catch {
+      // Still holding markers, or gone already. Neither is this to settle.
+    }
   }
 }
 

@@ -16,9 +16,14 @@ const notAfterWordChar = pattern(`(?<!${wordChar})`)
  * where a word start cannot be told apart, which is a term written in an unspaced script or opening
  * on punctuation.
  */
-function contains(haystack: string, needle: string, caseSensitive: boolean): boolean {
+function hits(haystack: string, needle: string, caseSensitive: boolean): string[] {
   const guard = startsWithWordChar.test(needle) ? notAfterWordChar : pattern('')
-  return regex(caseSensitive ? '' : 'i')`${guard}${needle}`.test(haystack)
+  const found = haystack.matchAll(regex(caseSensitive ? 'g' : 'gi')`${guard}${needle}`)
+  return [...found].map((match) => match[0])
+}
+
+function contains(haystack: string, needle: string, caseSensitive: boolean): boolean {
+  return hits(haystack, needle, caseSensitive).length > 0
 }
 
 /** Locales carrying text, since an empty value is a deliberate delete rather than a translation. */
@@ -27,7 +32,10 @@ function written(values: LocalizedText): [string, string][] {
 }
 
 /** A glossary entry's value for a locale, falling back to the base language (`de` for `de-CH`). */
-function localeTerm(terms: Record<string, GlossaryLocaleValue>, locale: string): GlossaryLocaleValue | undefined {
+export function localeTerm(
+  terms: Record<string, GlossaryLocaleValue>,
+  locale: string,
+): GlossaryLocaleValue | undefined {
   return terms[locale] ?? terms[locale.split('-')[0]!]
 }
 
@@ -67,8 +75,10 @@ export function checkGlossary(values: LocalizedText, styleguide: StyleguideConfi
     const formFor = (locale: string): GlossaryLocaleValue => localeTerm(entry.terms, locale) ?? ''
 
     for (const [locale, value] of entries) {
-      const deprecated = deprecatedForms(formFor(locale))
-      if (deprecated.some((form) => contains(value, form, false))) flagged.add(locale)
+      const preferred = preferredForm(formFor(locale))
+      // A deprecated form spelled the preferred way is the preferred way, not a violation.
+      const broken = (form: string): boolean => hits(value, form, false).some((hit) => hit !== preferred)
+      if (deprecatedForms(formFor(locale)).some(broken)) flagged.add(locale)
     }
 
     // In play for this message when some locale already renders the concept by its approved form.

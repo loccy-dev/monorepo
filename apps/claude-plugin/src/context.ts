@@ -44,7 +44,7 @@ function failConfigError(err: unknown): never {
  * not a fallback here: writing messages against guessed locales and no styleguide is exactly what
  * this tool exists to prevent.
  */
-export async function loadConfig(platform: Platform = loadPlatform()): Promise<LoccyConfig> {
+async function loadConfig(platform: Platform = loadPlatform()): Promise<LoccyConfig> {
   let config: LoccyConfig | null
   try {
     config = await readConfigFile(platform)

@@ -13,17 +13,25 @@ styleguide:
     - term: Loccy
 `
 
-/** The token the handshake just printed, taken out of the output the way an agent would. */
+/** The two parts of a briefing a throwaway project only knows at run time: its path and its hash. */
+function normalize(out: string): string {
+  return out
+    .replace(/Full entries: \S+/, 'Full entries: <project>/loccy.yaml')
+    .replace(/--styleguided [0-9a-f]{8}/, '--styleguided <token>')
+}
+
+/** The token the briefing just printed, taken out of the output the way an agent would. */
 function tokenFrom(out: string): string {
   const match = out.match(/--styleguided ([0-9a-f]{8})/)
-  expect(match, 'the handshake should print a token to confirm with').not.toBeNull()
+  expect(match, 'the briefing should print a token to confirm with').not.toBeNull()
   return match![1]!
 }
 
 /** A project on `config`, and the call carrying its token, so only the terminology checks are left. */
-async function styleguided(config: string): Promise<string[]> {
+async function briefed(config: string): Promise<string[]> {
   baseProject(config)
-  return ['upsert-message', '--styleguided', tokenFrom((await run(['styleguide'])).out)]
+  const { out } = await run(['upsert-message'], '{"login.title":{"en":"Sign in"}}')
+  return ['upsert-message', '--styleguided', tokenFrom(out)]
 }
 
 describe('upsert-message', () => {
@@ -36,72 +44,85 @@ describe('upsert-message', () => {
     expect(de().login.sub).toBe('Willkommen')
   })
 
-  it('points at the rules and writes nothing until the values are confirmed against them', async () => {
+  it('answers a write carrying no token with the rules in full, and writes nothing', async () => {
     baseProject(STYLEGUIDED)
     const values = '{"login.sub":{"en":"Welcome","de":"Willkommen"}}'
 
     const first = await run(['upsert-message'], values)
     // A refusal is an answer, not a failure: the exit code says the call ran and reported.
     expect({ code: first.code, crashed: first.crashed }).toEqual({ code: 0, crashed: false })
-    // The rules live in that command, so a refusal never reprints them.
-    expect(first.out).toBe(`
-[nothing written yet] this call carries no --styleguided token.
+    expect(normalize(first.out))
+      .toBe(`[nothing written yet] the rules this project writes by, as authored in loccy.yaml.
 
-  loccy-tool styleguide
+styleguide:
+  mechanics: |
+    Keep every label under 25 characters.
 
-That prints the rules this project writes by, and the token. Check the values against them,
-then rerun with --styleguided <token>.`)
+## Terminology
+
+  Loccy (never translated)
+
+Full entries: <project>/loccy.yaml
+
+Check the values against these rules, then repeat the call with --styleguided <token> (same token on every write until the rules change).`)
     expect(en().login.sub).toBeUndefined()
 
-    const second = await run(['upsert-message', '--styleguided', tokenFrom((await run(['styleguide'])).out)], values)
+    const second = await run(['upsert-message', '--styleguided', tokenFrom(first.out)], values)
     expect(second.out).toBe('wrote 1 key to locales/{en.json, de.json}')
     expect(en().login.sub).toBe('Welcome')
     expect(de().login.sub).toBe('Willkommen')
   })
 
-  it('refuses a token issued against a styleguide that has since changed', async () => {
-    baseProject(STYLEGUIDED)
-    const values = '{"login.sub":{"en":"Welcome","de":"Willkommen"}}'
-    const stale = tokenFrom((await run(['styleguide'])).out)
+  it('takes the token on every write after, since it stands for the rules rather than for one call', async () => {
+    const call = await briefed(STYLEGUIDED)
+
+    expect((await run(call, '{"login.sub":{"en":"Welcome"}}')).out).toBe('wrote 1 key to locales/en.json')
+    expect((await run(call, '{"login.ok":{"en":"Go"}}')).out).toBe(`wrote 1 key to locales/en.json
+  hint: copy changed, so a keypath may no longer describe its message. rename-key the ones that drifted`)
+  })
+
+  it('refuses a token issued against a styleguide that has since changed, and reprints it as it now reads', async () => {
+    const call = await briefed(STYLEGUIDED)
+    const values = '{"login.sub":{"en":"Welcome"}}'
 
     writeProjectFile('loccy.yaml', `${STYLEGUIDED}    - term: Mittens\n`)
 
-    const after = await run(['upsert-message', '--styleguided', stale], values)
+    const after = await run(call, values)
     expect(after.code).toBe(0)
-    expect(after.out).toBe(`
-[nothing written yet] token ${stale} does not match this project's styleguide as it stands.
-Either the rules changed since it was issued, or it came from somewhere else.
+    expect(normalize(after.out))
+      .toBe(`[nothing written yet] token ${call[2]} is not this project's styleguide as it stands, so here it is as it now reads.
 
-  loccy-tool styleguide
+styleguide:
+  mechanics: |
+    Keep every label under 25 characters.
 
-That prints the rules this project writes by, and the token. Check the values against them,
-then rerun with --styleguided <token>.`)
+## Terminology
+
+  Loccy (never translated)
+  Mittens (never translated)
+
+Full entries: <project>/loccy.yaml
+
+Check the values against these rules, then repeat the call with --styleguided <token> (same token on every write until the rules change).`)
     expect(en().login.sub).toBeUndefined()
 
     // The rules as they now stand carry the token that does work.
-    const retry = await run(['upsert-message', '--styleguided', tokenFrom((await run(['styleguide'])).out)], values)
-    expect(retry.out).toBe('wrote 1 key to locales/{en.json, de.json}')
+    const retry = await run(['upsert-message', '--styleguided', tokenFrom(after.out)], values)
+    expect(retry.out).toBe('wrote 1 key to locales/en.json')
   })
 
   it('refuses a token that was never issued, rather than taking the word for it', async () => {
     baseProject(STYLEGUIDED)
-    const { out, code } = await run(
-      ['upsert-message', '--styleguided', 'deadbeef'],
-      '{"login.sub":{"en":"W","de":"W"}}',
-    )
+    const { out, code } = await run(['upsert-message', '--styleguided', 'deadbeef'], '{"login.sub":{"en":"W"}}')
+
     expect(code).toBe(0)
-    expect(out).toBe(`
-[nothing written yet] token deadbeef does not match this project's styleguide as it stands.
-Either the rules changed since it was issued, or it came from somewhere else.
-
-  loccy-tool styleguide
-
-That prints the rules this project writes by, and the token. Check the values against them,
-then rerun with --styleguided <token>.`)
+    expect(out).toContain(
+      "[nothing written yet] token deadbeef is not this project's styleguide as it stands, so here it is as it now reads.",
+    )
     expect(en().login.sub).toBeUndefined()
   })
 
-  it('asks for no handshake where the styleguide holds nothing to check a value against', async () => {
+  it('asks for no review where the styleguide holds nothing to check a value against', async () => {
     baseProject(`${CONFIG}
 styleguide:
   localeRules: {}
@@ -315,7 +336,7 @@ styleguide:
 
   // A term is matched as a plain substring, so an ordinary word of one language can look like one.
   it('refuses a value that dropped the term, and writes the same call repeated', async () => {
-    const call = await styleguided(MINIMAL)
+    const call = await briefed(MINIMAL)
     const batch = '{"login.sub":{"en":"Loccy signs you in","de":"Wir melden dich an"}}'
 
     const refused = await run(call, batch)
@@ -336,7 +357,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('weighs the message as it will stand, so a term is not got past one locale per call', async () => {
-    const call = await styleguided(MINIMAL)
+    const call = await briefed(MINIMAL)
 
     const first = await run(call, '{"login.sub":{"en":"Loccy signs you in"}}')
     expect(first.out).toBe('wrote 1 key to locales/en.json')
@@ -354,7 +375,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('takes the same values in another order as the call already answered for', async () => {
-    const call = await styleguided(MINIMAL)
+    const call = await briefed(MINIMAL)
     await run(call, '{"login.sub":{"en":"Loccy signs you in","de":"Wir melden dich an"}}')
 
     const { out } = await run(call, '{"login.sub":{"de":"Wir melden dich an","en":"Loccy signs you in"}}')
@@ -362,7 +383,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('refuses afresh once the window the first refusal opened has closed', async () => {
-    const call = await styleguided(MINIMAL)
+    const call = await briefed(MINIMAL)
     const batch = '{"login.sub":{"en":"Loccy signs you in","de":"Wir melden dich an"}}'
     await run(call, batch)
 
@@ -385,7 +406,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('prints the rule with every field it was authored with', async () => {
-    const call = await styleguided(FULL)
+    const call = await briefed(FULL)
     const batch = '{"login.sub":{"en":"Loccy signs you in","de":"Wir melden dich an"}}'
 
     const { out, code } = await run(call, batch)
@@ -443,7 +464,7 @@ styleguide:
 `
 
   it('refuses a value that leaves out the term another locale renders by its approved form', async () => {
-    const call = await styleguided(MINIMAL)
+    const call = await briefed(MINIMAL)
     const batch = '{"login.sub":{"en":"Reservation confirmed","de":"Tisch bestätigt"}}'
 
     const { out, code } = await run(call, batch)
@@ -463,7 +484,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('refuses a value spelling a term by its deprecated form, printing every field of the rule', async () => {
-    const call = await styleguided(FULL)
+    const call = await briefed(FULL)
     const batch = '{"login.sub":{"en":"Booking confirmed","de":"Reservierung bestätigt"}}'
 
     const { out, code } = await run(call, batch)
@@ -490,7 +511,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('names every key and rule the batch tripped, since a refusal is answered in one go', async () => {
-    const call = await styleguided(FULL)
+    const call = await briefed(FULL)
     const batch =
       '{"login.sub":{"en":"Booking confirmed","de":"Reservierung bestätigt"},' +
       '"login.hint":{"en":"Reservation held","de":"Tisch reserviert"}}'
@@ -536,7 +557,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('says nothing about a locale the entry gives no term for', async () => {
-    const call = await styleguided(EN_ONLY)
+    const call = await briefed(EN_ONLY)
     const batch = '{"login.sub":{"en":"Reservation confirmed","de":"Tisch bestätigt"}}'
 
     const { out, code } = await run(call, batch)
@@ -548,7 +569,7 @@ False positives happen: fix the copy, or repeat this exact call to write it as-i
   })
 
   it('writes the same call repeated, so a false positive cannot lock the copy out', async () => {
-    const call = await styleguided(FULL)
+    const call = await briefed(FULL)
     const batch = '{"login.sub":{"en":"Booking confirmed","de":"Reservierung bestätigt"}}'
 
     await run(call, batch)
