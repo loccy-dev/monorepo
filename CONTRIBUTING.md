@@ -41,6 +41,20 @@ Extension**). It talks to the production backend.
 > Generated files (`packages/types/schemas/*`) are produced by the build.
 > Never hand-edit them.
 
+### Installing a build in your own editor
+
+The Extension Development Host is the fastest loop, but it is a separate window with its own workspace. To use a build in the editor you work in every day, package it as a `.vsix` and install it:
+
+```sh
+cd apps/extension
+npx @vscode/vsce package --no-dependencies   # runs the production build first
+code --install-extension loccy-<version>.vsix
+```
+
+Use `cursor --install-extension` (or the equivalent for your editor) in place of `code`. Any VS Code based editor accepts the same `.vsix`.
+
+The package takes its version from `apps/extension/package.json`, which is the version already on the marketplace. An editor will not replace an installed extension with a package of the same version, so uninstall the marketplace copy first, or bump the version in `package.json` so the build is unmistakably yours. Reload the window after installing.
+
 ## Current focus
 
 See [`TODO.md`](TODO.md) for current priorities. Contributions welcome.
