@@ -373,7 +373,7 @@ export class TypeResolver {
       true,
     )
 
-    let typeDecl = this.findDeclarationInFile(sourceFile, typeName)
+    let typeDecl = findDeclarationByName(sourceFile, typeName, 'type')
     let typeDeclSourceFile = sourceFile
 
     if (!typeDecl) {
@@ -389,7 +389,7 @@ export class TypeResolver {
               ts.ScriptTarget.Latest,
               true,
             )
-            typeDecl = this.findExportedDeclaration(importedSourceFile, typeName)
+            typeDecl = this.findExportedDeclaration(importedSourceFile, typeName, 'type')
             if (typeDecl) {
               typeDeclSourceFile = importedSourceFile
             }
@@ -409,45 +409,10 @@ export class TypeResolver {
     }
 
     if (typeDecl) {
-      return extractValuesFromNode(typeDecl, typeDeclSourceFile)
+      return extractValuesFromNode(typeDecl, typeDeclSourceFile, 'values')
     }
 
     return []
-  }
-
-  private findDeclarationInFile(sourceFile: ts.SourceFile, name: string): ts.Node | undefined {
-    let found: ts.Node | undefined
-
-    function visit(node: ts.Node) {
-      if (found) {
-        return
-      }
-
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
-        found = node
-        return
-      }
-
-      if (ts.isEnumDeclaration(node) && node.name.text === name) {
-        found = node
-        return
-      }
-
-      if (ts.isTypeAliasDeclaration(node) && node.name.text === name) {
-        found = node
-        return
-      }
-
-      if (ts.isParameter(node) && ts.isIdentifier(node.name) && node.name.text === name) {
-        found = node
-        return
-      }
-
-      ts.forEachChild(node, visit)
-    }
-
-    visit(sourceFile)
-    return found
   }
 
   private findImportDeclaration(sourceFile: ts.SourceFile, varName: string): ts.ImportDeclaration | undefined {
@@ -465,37 +430,23 @@ export class TypeResolver {
     return undefined
   }
 
-  private findExportedDeclaration(sourceFile: ts.SourceFile, name: string): ts.Node | undefined {
+  private findExportedDeclaration(
+    sourceFile: ts.SourceFile,
+    name: string,
+    space: DeclarationSpace = 'value',
+  ): ts.Node | undefined {
     for (const statement of sourceFile.statements) {
       // Named exports: export { Foo }
       if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
         const found = statement.exportClause.elements.find((element) => element.name.text === name)
         if (found) {
-          return this.findDeclarationInFile(sourceFile, found.name.text)
-        }
-      }
-
-      // Direct exports: export const Foo = ...
-      if (this.hasExportModifier(statement)) {
-        if (ts.isVariableStatement(statement)) {
-          const decl = statement.declarationList.declarations.find(
-            (d) => ts.isIdentifier(d.name) && d.name.text === name,
-          )
-          if (decl) {
-            return decl
-          }
-        }
-        if (ts.isEnumDeclaration(statement) && statement.name.text === name) {
-          return statement
-        }
-        if (ts.isTypeAliasDeclaration(statement) && statement.name.text === name) {
-          return statement
+          return findDeclarationByName(sourceFile, found.name.text, space)
         }
       }
     }
 
-    // Fallback: look for non-exported declarations
-    return this.findDeclarationInFile(sourceFile, name)
+    // Direct exports (`export const Foo = ...`), in the order the space asks for.
+    return findDeclarationByName(sourceFile, name, space)
   }
 
   private hasExportModifier(node: ts.Node): boolean {
@@ -628,7 +579,7 @@ export class TypeResolver {
               ts.ScriptTarget.Latest,
               true,
             )
-            const foundDecl = this.findExportedDeclaration(symbolSourceFile, typeName)
+            const foundDecl = this.findExportedDeclaration(symbolSourceFile, typeName, 'type')
             if (foundDecl) {
               return { node: foundDecl, sourceFile: symbolSourceFile }
             }
@@ -643,4 +594,51 @@ export class TypeResolver {
 
     return undefined
   }
+}
+
+/**
+ * Whether a name was read in type position or value position. The two can name different things:
+ * `const SignInError = {...}` and `type SignInError = ...` is one object and the type derived from
+ * it, and a key annotated with the type means its values, not the object's property names.
+ */
+export type DeclarationSpace = 'type' | 'value'
+
+/** The declaration of `name`, preferring the one belonging to `space` when both exist. */
+export function findDeclarationByName(
+  sourceFile: ts.SourceFile,
+  name: string,
+  space: DeclarationSpace,
+): ts.Node | undefined {
+  const isTypeSpace = (node: ts.Node) => ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node)
+  const matches = collectDeclarations(sourceFile, name)
+
+  const preferred = matches.filter((node) => (space === 'type' ? isTypeSpace(node) : !isTypeSpace(node)))
+  return preferred[0] ?? matches[0]
+}
+
+function collectDeclarations(sourceFile: ts.SourceFile, name: string): ts.Node[] {
+  const found: ts.Node[] = []
+
+  const named = (node: ts.Node): boolean => {
+    const declName = (node as { name?: ts.Node }).name
+    return !!declName && ts.isIdentifier(declName) && declName.text === name
+  }
+
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isVariableDeclaration(node) ||
+        ts.isEnumDeclaration(node) ||
+        ts.isTypeAliasDeclaration(node) ||
+        ts.isInterfaceDeclaration(node) ||
+        ts.isParameter(node)) &&
+      named(node)
+    ) {
+      found.push(node)
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+  return found
 }
