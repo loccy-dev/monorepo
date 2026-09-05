@@ -19,7 +19,7 @@ interface HookInput {
   cwd?: string
   session_id?: string
   tool_name?: string
-  tool_input?: { file_path?: string }
+  tool_input?: { file_path?: string; command?: string }
 }
 
 async function readHookInput(): Promise<HookInput | null> {
@@ -119,6 +119,41 @@ export async function preEditHook(debug: boolean, file?: string): Promise<void> 
         permissionDecisionReason:
           `${relativePath} holds translations, and those are written with loccy-tool upsert-message (see --help). ` +
           'If you do need to edit it by hand, repeat the edit and this lock lifts for the next 5 minutes.',
+      },
+    },
+    debug,
+  )
+}
+
+/** The command line from the tool's name on, which is where a pipe would sit. Later lines are stdin. */
+function afterInvocation(command: string): string | null {
+  const line = command.split('\n').find((candidate) => candidate.includes('loccy-tool'))
+  if (line === undefined) return null
+  return line.slice(line.indexOf('loccy-tool') + 'loccy-tool'.length)
+}
+
+/**
+ * PreToolUse guard on Bash calls that pipe the tool's output on. A refusal is written to be read
+ * whole, and a slice of one leaves the agent guessing what it said; asking not to slice it has not
+ * been enough. Denied outright rather than once: the tool never ran, so there is nothing to retry.
+ */
+export async function preBashHook(debug: boolean, command?: string): Promise<void> {
+  const input = await readHookInput()
+  const named = command ?? input?.tool_input?.command
+  if (named === undefined) return silent(debug, 'no command named')
+
+  const rest = afterInvocation(named)
+  if (rest === null) return silent(debug, 'the command never runs loccy-tool')
+  if (!rest.includes('|')) return silent(debug, 'nothing is piped after loccy-tool')
+
+  emit(
+    {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason:
+          'loccy-tool output is meant to be read whole, and a pipe after it reads a slice. ' +
+          'Run the same command with nothing piped after loccy-tool.',
       },
     },
     debug,

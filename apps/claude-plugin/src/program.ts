@@ -8,7 +8,7 @@ import { upsertMessageCommand } from './commands/upsert-message'
 import { removeMessageCommand } from './commands/remove-message'
 import { renameKeyCommand } from './commands/rename-key'
 import { styleguideExampleCommand } from './commands/styleguide'
-import { preEditHook, sessionStartHook, subagentStartHook } from './commands/hook'
+import { preBashHook, preEditHook, sessionStartHook, subagentStartHook } from './commands/hook'
 import { workflow } from './tool-commands'
 
 function withModuleOptions(command: Command): Command {
@@ -42,6 +42,11 @@ function addHookCommands(program: Command): void {
       name: 'hook-pre-edit',
       run: preEditHook,
       argument: ['[file]', "Translation file the edit would touch. Omit it and the project's own is used"],
+    },
+    {
+      name: 'hook-pre-bash',
+      run: preBashHook,
+      argument: ['[command]', 'Shell command the Bash tool would run'],
     },
   ]
 

@@ -264,3 +264,48 @@ describe('the translation-file guard', () => {
     expect({ out, code, crashed }).toEqual({ out: '', code: 0, crashed: false })
   })
 })
+
+describe('the pipe guard', () => {
+  const tool = '/plugins/loccy/bin/loccy-tool'
+  const hookInput = (command: string) => JSON.stringify({ tool_input: { command } })
+
+  const DENIED = {
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason:
+        'loccy-tool output is meant to be read whole, and a pipe after it reads a slice. ' +
+        'Run the same command with nothing piped after loccy-tool.',
+    },
+  }
+
+  it.each([
+    ['tail', `${tool} search login | tail -5`],
+    ['head after stderr merge', `${tool} upsert-message --styleguided abc 2>&1 | head -3`],
+    ['a pipe on a heredoc-fed write', `cat <<'JSON' | ${tool} upsert-message | tail -3\n{"a":{"en":"x"}}\nJSON`],
+  ])('denies %s, the output being cut before it is read', async (_, command) => {
+    const { out } = await run(['hook-pre-bash'], hookInput(command))
+    expect(JSON.parse(out)).toEqual(DENIED)
+  })
+
+  it.each([
+    ['a plain call', `${tool} search login`],
+    ['stdin piped in', `cat <<'JSON' | ${tool} upsert-message\n{"a":{"en":"a | b"}}\nJSON`],
+    ['a pipe in the values, on a later line', `${tool} upsert-message <<'JSON'\n{"a":{"en":"a | b"}}\nJSON`],
+    ['a command that never runs the tool', 'git log | head'],
+  ])('says nothing about %s', async (_, command) => {
+    const { out, code } = await run(['hook-pre-bash'], hookInput(command))
+    expect({ out, code }).toEqual({ out: '', code: 0 })
+  })
+
+  it('takes the command as an argument, so a replay needs no payload spelled out', async () => {
+    const { out } = await run(['hook-pre-bash-debug', `${tool} search login | head`])
+    expect(out).toBe(`{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "loccy-tool output is meant to be read whole, and a pipe after it reads a slice. Run the same command with nothing piped after loccy-tool."
+  }
+}`)
+  })
+})

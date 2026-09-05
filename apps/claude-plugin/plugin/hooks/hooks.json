@@ -32,6 +32,17 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "if": "Bash(*loccy-tool*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool\" hook-pre-bash",
+            "timeout": 15
+          }
+        ]
       }
     ]
   }
