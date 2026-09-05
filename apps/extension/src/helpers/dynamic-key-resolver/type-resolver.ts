@@ -1,6 +1,7 @@
 import ts from 'typescript'
 import * as vscode from 'vscode'
 import { debug } from './utils'
+import { extractStringLiterals, extractValuesFromNode, findNodeAtPosition } from './const-values'
 
 export class TypeResolver {
   constructor(
@@ -70,7 +71,7 @@ export class TypeResolver {
         const sourceFile = ts.createSourceFile(doc.fileName, text, ts.ScriptTarget.Latest, true)
 
         const offset = doc.offsetAt(typeDef.range.start)
-        const node = this.findNodeAtPosition(sourceFile, offset)
+        const node = findNodeAtPosition(sourceFile, offset)
 
         if (node) {
           const propertyValues = this.findPropertyTypeInNode(node, propertyName, sourceFile)
@@ -249,61 +250,13 @@ export class TypeResolver {
       const sourceFile = ts.createSourceFile(doc.fileName, text, ts.ScriptTarget.Latest, true)
 
       const offset = doc.offsetAt(location.range.start)
-      const node = this.findNodeAtPosition(sourceFile, offset)
+      const node = findNodeAtPosition(sourceFile, offset)
 
-      return node ? this.extractValuesFromNode(node, sourceFile) : []
+      return node ? extractValuesFromNode(node, sourceFile) : []
     } catch (error) {
       debug('Extract from location error:', error)
       return []
     }
-  }
-
-  private findNodeAtPosition(sourceFile: ts.SourceFile, position: number): ts.Node | undefined {
-    function find(node: ts.Node): ts.Node | undefined {
-      if (position >= node.getStart() && position < node.getEnd()) {
-        return ts.forEachChild(node, find) || node
-      }
-    }
-    return find(sourceFile)
-  }
-
-  private extractValuesFromNode(node: ts.Node, sourceFile: ts.SourceFile): string[] {
-    let current: ts.Node | undefined = node
-
-    while (current) {
-      if (ts.isEnumDeclaration(current)) {
-        const values = current.members.map((m) => {
-          if (m.initializer && ts.isStringLiteral(m.initializer)) {
-            return m.initializer.text
-          }
-          return m.name.getText(sourceFile)
-        })
-
-        if (values.length > 0) {
-          return values
-        }
-      }
-
-      // Type alias with union of string literals or typeof patterns
-      if (ts.isTypeAliasDeclaration(current)) {
-        const values = this.extractStringLiterals(current.type, sourceFile)
-        if (values.length > 0) {
-          return values
-        }
-      }
-
-      // Variable declaration with const object (for typeof patterns)
-      if (ts.isVariableDeclaration(current) && current.initializer) {
-        const values = this.extractFromVariableDeclaration(current, sourceFile)
-        if (values.length > 0) {
-          return values
-        }
-      }
-
-      current = current.parent
-    }
-
-    return []
   }
 
   private findPropertyTypeInNode(node: ts.Node, propertyName: string, sourceFile: ts.SourceFile): string[] {
@@ -342,7 +295,7 @@ export class TypeResolver {
         const memberName = member.name.getText(sourceFile)
 
         if (memberName === propertyName && member.type && this.isStringLiteralType(member.type)) {
-          const typeValues = this.extractStringLiterals(member.type, sourceFile)
+          const typeValues = extractStringLiterals(member.type, sourceFile)
           if (typeValues.length > 0) {
             debug(`Found property type in ${label}:`, typeValues)
             return typeValues
@@ -376,114 +329,6 @@ export class TypeResolver {
     }
 
     return false
-  }
-
-  private extractStringLiterals(typeNode: ts.TypeNode, sourceFile: ts.SourceFile): string[] {
-    const results: string[] = []
-
-    if (ts.isUnionTypeNode(typeNode)) {
-      typeNode.types.forEach((t) => {
-        if (ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal)) {
-          results.push(t.literal.text)
-        }
-      })
-      return results
-    }
-
-    // Indexed access type: typeof obj[keyof typeof obj] or (typeof obj)[keyof typeof obj]
-    if (ts.isIndexedAccessTypeNode(typeNode)) {
-      let objectType = typeNode.objectType
-
-      // Handle parenthesized type: (typeof obj)
-      if (ts.isParenthesizedTypeNode(objectType)) {
-        objectType = objectType.type
-      }
-
-      if (ts.isTypeQueryNode(objectType)) {
-        const exprName = objectType.exprName
-        if (ts.isIdentifier(exprName)) {
-          const objectDecl = this.findConstObjectDeclaration(sourceFile, exprName.text)
-          if (objectDecl) {
-            return this.extractValuesFromNode(objectDecl, sourceFile)
-          }
-        }
-      }
-    }
-
-    if (ts.isLiteralTypeNode(typeNode) && ts.isStringLiteral(typeNode.literal)) {
-      return [typeNode.literal.text]
-    }
-
-    return results
-  }
-
-  private findConstObjectDeclaration(sourceFile: ts.SourceFile, name: string): ts.VariableDeclaration | undefined {
-    let found: ts.VariableDeclaration | undefined
-
-    function visit(node: ts.Node) {
-      if (found) {
-        return
-      }
-
-      if (ts.isVariableStatement(node)) {
-        const declaration = node.declarationList.declarations.find((decl) => {
-          if (!ts.isIdentifier(decl.name) || decl.name.text !== name || !decl.initializer) {
-            return false
-          }
-
-          // Direct object literal or "as const" pattern
-          return (
-            ts.isObjectLiteralExpression(decl.initializer) ||
-            (ts.isAsExpression(decl.initializer) && ts.isObjectLiteralExpression(decl.initializer.expression))
-          )
-        })
-
-        if (declaration) {
-          found = declaration
-          return
-        }
-      }
-
-      ts.forEachChild(node, visit)
-    }
-
-    visit(sourceFile)
-    return found
-  }
-
-  private extractFromVariableDeclaration(declaration: ts.VariableDeclaration, sourceFile: ts.SourceFile): string[] {
-    if (!declaration.initializer) {
-      return []
-    }
-
-    const initializer = declaration.initializer
-
-    // Direct object literal: const foo = { A: "A", B: "B" }
-    if (ts.isObjectLiteralExpression(initializer)) {
-      return this.extractFromObjectLiteral(initializer, sourceFile)
-    }
-
-    // As const expression: const foo = { A: "A" } as const
-    if (ts.isAsExpression(initializer) && ts.isObjectLiteralExpression(initializer.expression)) {
-      return this.extractFromObjectLiteral(initializer.expression, sourceFile)
-    }
-
-    // String literal: const foo = "value"
-    if (ts.isStringLiteral(initializer)) {
-      return [initializer.text]
-    }
-
-    return []
-  }
-
-  private extractFromObjectLiteral(objectLiteral: ts.ObjectLiteralExpression, sourceFile: ts.SourceFile): string[] {
-    return objectLiteral.properties
-      .filter(ts.isPropertyAssignment)
-      .map((prop) => {
-        const name = prop.name.getText(sourceFile).replace(/["']/g, '')
-        return name
-      })
-      .filter((name) => name.length > 0)
   }
 
   private async resolveTypeReference(typeName: string, position: vscode.Position): Promise<string[]> {
@@ -564,7 +409,7 @@ export class TypeResolver {
     }
 
     if (typeDecl) {
-      return this.extractValuesFromNode(typeDecl, typeDeclSourceFile)
+      return extractValuesFromNode(typeDecl, typeDeclSourceFile)
     }
 
     return []
