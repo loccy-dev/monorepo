@@ -11,12 +11,20 @@ import type { KeypathInfo } from '@repo/types/framework.types'
 import { NS_WITHOUT_NS } from '@repo/shared/core/helpers/namespace.helpers'
 import { renameUsageEdits } from '@repo/shared/core/usages/rename-usage'
 import { usageMatchesNamespace } from '@repo/shared/core/usages/find-usages'
+import {
+  collectUsedKeyDirectives,
+  isDeclaredUsed,
+  type UsedKeyDirective,
+} from '@repo/shared/core/usages/used-key-directives'
 import { KEYS_PARSE_ON_EDIT_DEBOUNCE_DELAY } from '../config'
 
 class UsageService {
   public initialized = false
 
   public perFile: Map<string, KeypathInfo[]> = new Map()
+
+  /** `loccy-used-keys` directives per source file — keys they declare are used but unscannable. */
+  public perFileDirectives: Map<string, UsedKeyDirective[]> = new Map()
 
   public documentParsePromises = new Map<string, Promise<void>>()
   private documentParsePromiseIds = new WeakMap<Promise<void>, symbol>()
@@ -25,6 +33,7 @@ class UsageService {
   async init() {
     this.initialized = false
     this.perFile = new Map()
+    this.perFileDirectives = new Map()
 
     const files = fileResolver.srcFileUris
     for (const file of files) {
@@ -63,6 +72,15 @@ class UsageService {
     }
 
     return result
+  }
+
+  /**
+   * Whether a `loccy-used-keys` directive anywhere in the workspace declares this keypath used. The
+   * directive exists for keys built at runtime out of values the resolver cannot see, so a key it
+   * covers is used even though no scanned usage names it.
+   */
+  isDeclaredUsed(keypath: string): boolean {
+    return isDeclaredUsed(keypath, [...this.perFileDirectives.values()].flat())
   }
 
   async getCodeContextForKeypath(keypath: string, namespace?: string) {
@@ -139,9 +157,16 @@ class UsageService {
         }
 
         const keypaths = content ? await getKeyRanges(content, uri) : []
+        const directives = content ? collectUsedKeyDirectives(content) : []
 
         if (controller.signal.aborted) {
           throw new DOMException('Aborted', 'AbortError')
+        }
+
+        if (!directives.length) {
+          this.perFileDirectives.delete(stringifiedUri)
+        } else {
+          this.perFileDirectives.set(stringifiedUri, directives)
         }
 
         if (!keypaths.length) {
@@ -229,6 +254,7 @@ class UsageService {
       this.documentParsePromises.delete(stringifiedUri)
 
       this.perFile.delete(stringifiedUri)
+      this.perFileDirectives.delete(stringifiedUri)
     }
 
     updateAnnotations()

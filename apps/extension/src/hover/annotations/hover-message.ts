@@ -55,7 +55,7 @@ export function buildHoverMessage(
   const parts = [
     renderKeypath(keypath, namespace, prefix),
     renderTranslations(allTranslations, keypath, loc, namespace, moduleName),
-    renderUsages(allUsages, currentLocation, true, moduleName),
+    renderUsages(allUsages, currentLocation, true, moduleName, keypath),
   ]
 
   const htmlContent = `<table>${parts.map((p) => p.trim()).join('')}</table>`
@@ -117,7 +117,7 @@ export function buildDynamicHoverMessage(
         ${renderEmptyLine()}
         ${renderKeypath(keypath, namespace, prefix, false)}
         ${renderTranslations(localizedText, keypath, loc, namespace, moduleName)}
-        ${renderUsages(buildUsages(keypath), currentLocation, false, moduleName)}
+        ${renderUsages(buildUsages(keypath), currentLocation, false, moduleName, keypath)}
       `.trim()
             })
             .join(`${renderEmptyLine()}${renderDivider()}`),
@@ -202,7 +202,7 @@ export function buildPluralHoverMessage(
         ${renderEmptyLine()}
         ${renderKeypath(keypath, namespace, prefix, false)}
         ${renderTranslations(localizedText, keypath, loc, namespace, moduleName, placeholder)}
-        ${renderUsages(buildUsages(keypath), currentLocation, false, moduleName)}
+        ${renderUsages(buildUsages(keypath), currentLocation, false, moduleName, keypath)}
       `.trim()
             })
             .join(`${renderEmptyLine()}${renderDivider()}`),
@@ -269,7 +269,7 @@ export function buildValuePluralHoverMessage(
   const parts = [
     renderKeypath(keypath, namespace, prefix),
     rows,
-    renderUsages(allUsages, currentLocation, true, moduleName),
+    renderUsages(allUsages, currentLocation, true, moduleName, keypath),
   ]
   const markdownHoverMessage = new vscode.MarkdownString(`<table>${parts.map((p) => p.trim()).join('')}</table>`, true)
   markdownHoverMessage.isTrusted = true
@@ -323,6 +323,7 @@ function renderUsages(
   currentLocation: { uri: vscode.Uri; loc: Loc },
   divide = true,
   moduleName?: string,
+  keypath?: string,
 ) {
   const isCurrent = (usage: { uri: vscode.Uri; loc: Loc }) => {
     return (
@@ -372,6 +373,16 @@ function renderUsages(
         <td colspan="${TOTAL_COLS}"><span style="color:${TEXT_SECONDARY_COLOR};">${label}</span></td>
       </tr>
       ${usages.map((u) => renderUsage(u, isCurrent(u))).join('')}
+    `.trim()
+  } else if (keypath && usageService.isDeclaredUsed(keypath)) {
+    // A `loccy-used-keys` directive declares the key used where the usage is built at runtime and so
+    // cannot be scanned. Absent usages are expected here, not a warning.
+    return `
+      ${maybeDivider}
+      ${renderEmptyLine()}
+      <tr>
+        <td colspan="${TOTAL_COLS}"><span style="color:${TEXT_SECONDARY_COLOR};">Used dynamically, declared by loccy-used-keys</span></td>
+      </tr>
     `.trim()
   } else {
     return `

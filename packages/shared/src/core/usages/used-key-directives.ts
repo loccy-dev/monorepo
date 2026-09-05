@@ -7,7 +7,7 @@
 // are treated as used by the unused-keys check. Living next to the code, a directive is deleted when
 // its dynamic construction is — and the linter flags it as stale if it stops matching any key.
 
-import { getLineIndex } from '../helpers/helpers'
+import { getLineIndex, isKeypathExcluded } from '../helpers/helpers'
 
 /** Anything after the marker up to end-of-line; block-comment closers are stripped below. */
 const DIRECTIVE_RE = /loccy-used-keys:[ \t]*([^\n\r]*)/g
@@ -30,4 +30,12 @@ export function collectUsedKeyDirectives(content: string): UsedKeyDirective[] {
     if (patterns.length) directives.push({ line: getLineIndex(content, match.index!), patterns })
   }
   return directives
+}
+
+/** Whether any `loccy-used-keys` directive declares this keypath used. */
+export function isDeclaredUsed(keypath: string, directives: UsedKeyDirective[]): boolean {
+  return isKeypathExcluded(
+    keypath,
+    directives.flatMap((directive) => directive.patterns),
+  )
 }

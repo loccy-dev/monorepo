@@ -12,6 +12,7 @@ import { qualifyKey } from '../helpers/namespace.helpers'
 import { missingValuePluralCategories, requiredPluralCategories } from '../plurals/validate-plural'
 import { parseResourceFile, resolveActiveMessageFormat } from '../registry'
 import { readModuleFiles, writeModuleFile } from '../resources/module-files'
+import { isDeclaredUsed } from '../usages/used-key-directives'
 import { scanConfig } from '../scan/scan-config'
 import { createUsageScanner } from '../usages/usage-scanner'
 import {
@@ -295,9 +296,8 @@ export async function checkUsages(
 
     if (unusedEnabled) {
       // `loccy-used-keys` directives whitelist dynamically-built keys the scanner cannot see.
-      const usedPatterns = scanResult.usedKeyDirectives.flatMap((directive) => directive.patterns)
       const unused = [...translationKeypaths]
-        .filter((keypath) => !usedKeypaths.has(keypath) && !isKeypathExcluded(keypath, usedPatterns))
+        .filter((keypath) => !usedKeypaths.has(keypath) && !isDeclaredUsed(keypath, scanResult.usedKeyDirectives))
         .sort()
 
       if (unused.length && fix) {
