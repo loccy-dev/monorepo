@@ -35,10 +35,10 @@
       },
       {
         "matcher": "Bash",
-        "if": "Bash(*loccy-tool*)",
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(*loccy-tool*)",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool\" hook-pre-bash",
             "timeout": 15
           }
