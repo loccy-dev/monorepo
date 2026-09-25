@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(*loccy-tool*)",
+            "if": "Bash(*loccy-tool upsert-message*)",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/loccy-tool\" hook-pre-bash",
             "timeout": 15
           }

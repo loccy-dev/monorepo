@@ -32,7 +32,9 @@ function renderCommands(indent = '  '): string {
 /** The one shape every write takes, so there is never a second one to pick between. */
 const BATCH_SYNTAX = `Writes are keyed by keypath on stdin, one key in the object or many: \`upsert-message\` reads
 \`{key: {locale: value}}\`, \`rename-key\` reads \`{old: new}\`. \`remove-message\` takes keys as arguments.
-Every batch is all-or-nothing: no file changes unless all of them can.`
+Every batch is all-or-nothing: no file changes unless all of them can.
+Read \`upsert-message\` output whole, never piped or redirected: it is the feedback on your write,
+and it is short.`
 
 /**
  * The tool in full: what it is for, every command it has, and how a batch is spelled. Printed for a
@@ -48,8 +50,6 @@ written, moved or deleted here, so a key you add still has to be called, and one
 remove leaves references behind for you to update.
 
 ${renderCommands()}
-
-Never pipe output through head, tail or grep. Every output is meant to be read whole.
 
 ${BATCH_SYNTAX}
 

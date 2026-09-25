@@ -125,26 +125,78 @@ export async function preEditHook(debug: boolean, file?: string): Promise<void> 
   )
 }
 
-/** The command line from the tool's name on, which is where a pipe would sit. Later lines are stdin. */
-function afterInvocation(command: string): string | null {
-  const line = command.split('\n').find((candidate) => candidate.includes('loccy-tool'))
-  if (line === undefined) return null
-  return line.slice(line.indexOf('loccy-tool') + 'loccy-tool'.length)
+const UPSERT = /loccy-tool\s+upsert-message\b/
+
+/** The line with quoted text and escapes blanked out, leaving only what the shell itself reads. */
+function shellSyntax(line: string): string {
+  let quote: string | null = null
+  let out = ''
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (quote) {
+      if (char === quote) quote = null
+      else if (char === '\\' && quote === '"') i++
+      out += '_'
+    } else if (char === '\\') {
+      i++
+      out += '_'
+    } else {
+      if (char === "'" || char === '"') quote = char
+      out += quote ? '_' : char
+    }
+  }
+  return out
+}
+
+/** The upsert call's own line from its name on, quoted text blanked. Later lines are stdin. */
+function afterUpsert(command: string): string | null {
+  for (const line of command.split('\n').map(shellSyntax)) {
+    const match = UPSERT.exec(line)
+    if (match) return line.slice(match.index + match[0].length)
+  }
+  return null
 }
 
 /**
- * PreToolUse guard on Bash calls that pipe the tool's output on. A refusal is written to be read
- * whole, and a slice of one leaves the agent guessing what it said; asking not to slice it has not
- * been enough. Denied outright rather than once: the tool never ran, so there is nothing to retry.
+ * Whether the output goes anywhere but the caller: piped on, or redirected to a file. Read up to the
+ * end of this one command, and one stream merged into the other stays in view. Anything unrecognised
+ * reads as no, a wrong refusal costing more than a missed slice.
+ */
+function sendsOutputAway(rest: string): boolean {
+  for (let i = 0; i < rest.length; i++) {
+    const char = rest[i]
+    if (char === ';' || char === ')') return false
+    if (char === '|') return rest[i + 1] !== '|'
+    if (char === '&') return rest[i + 1] === '>'
+    if (char === '>') {
+      const merge = /^>>?&\d+/.exec(rest.slice(i))
+      if (!merge) return true
+      i += merge[0].length - 1
+    }
+  }
+  return false
+}
+
+/**
+ * PreToolUse guard on an upsert whose output is piped on or redirected away. That output is the
+ * feedback on the write, the styleguide or why nothing was written, and a slice of it leaves the
+ * agent guessing; asking not to slice it has not been enough. A repeat goes through, so a misread
+ * command costs one round trip, never the task.
  */
 export async function preBashHook(debug: boolean, command?: string): Promise<void> {
   const input = await readHookInput()
   const named = command ?? input?.tool_input?.command
   if (named === undefined) return silent(debug, 'no command named')
 
-  const rest = afterInvocation(named)
-  if (rest === null) return silent(debug, 'the command never runs loccy-tool')
-  if (!rest.includes('|')) return silent(debug, 'nothing is piped after loccy-tool')
+  const rest = afterUpsert(named)
+  if (rest === null) return silent(debug, 'the command never runs loccy-tool upsert-message')
+  if (!sendsOutputAway(rest)) return silent(debug, 'upsert-message output reaches the caller whole')
+
+  // A debug run gets a session of its own, as the window a real denial opens must not silence it.
+  const session = debug ? `debug:${randomUUID()}` : (input?.session_id ?? 'no-session')
+  if (!(await refuseOnce(`bash:${session}`, named))) {
+    return silent(debug, `this command is inside its ${UNLOCK_MS / 60000}-minute unlock window`)
+  }
 
   emit(
     {
@@ -152,8 +204,9 @@ export async function preBashHook(debug: boolean, command?: string): Promise<voi
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
         permissionDecisionReason:
-          'loccy-tool output is meant to be read whole, and a pipe after it reads a slice. ' +
-          'Run the same command with nothing piped after loccy-tool.',
+          'upsert-message answers with the feedback on your write: the styleguide, or why nothing was ' +
+          'written. Read it whole by running it with nothing piped or redirected after it. ' +
+          'If you do need this exact command, repeat it.',
       },
     },
     debug,

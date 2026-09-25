@@ -82,11 +82,11 @@ remove leaves references behind for you to update.
   remove-message <key...>  remove keys from every locale
   rename-key               rename across locales and linked refs, source untouched (JSON on stdin)
 
-Never pipe output through head, tail or grep. Every output is meant to be read whole.
-
 Writes are keyed by keypath on stdin, one key in the object or many: \`upsert-message\` reads
 \`{key: {locale: value}}\`, \`rename-key\` reads \`{old: new}\`. \`remove-message\` takes keys as arguments.
 Every batch is all-or-nothing: no file changes unless all of them can.
+Read \`upsert-message\` output whole, never piped or redirected: it is the feedback on your write,
+and it is short.
 
 Pass --help to any command for details.
 
@@ -265,46 +265,72 @@ describe('the translation-file guard', () => {
   })
 })
 
-describe('the pipe guard', () => {
+describe('the upsert output guard', () => {
   const tool = '/plugins/loccy/bin/loccy-tool'
-  const hookInput = (command: string) => JSON.stringify({ tool_input: { command } })
+  const upsert = `${tool} upsert-message`
+  const hookInput = (command: string, sessionId = `test-${process.pid}-${Math.random()}`) =>
+    JSON.stringify({ session_id: sessionId, tool_input: { command } })
 
+  const REASON =
+    'upsert-message answers with the feedback on your write: the styleguide, or why nothing was ' +
+    'written. Read it whole by running it with nothing piped or redirected after it. ' +
+    'If you do need this exact command, repeat it.'
   const DENIED = {
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason:
-        'loccy-tool output is meant to be read whole, and a pipe after it reads a slice. ' +
-        'Run the same command with nothing piped after loccy-tool.',
-    },
+    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: REASON },
   }
 
   it.each([
-    ['tail', `${tool} search login | tail -5`],
-    ['head after stderr merge', `${tool} upsert-message --styleguided abc 2>&1 | head -3`],
-    ['a pipe on a heredoc-fed write', `cat <<'JSON' | ${tool} upsert-message | tail -3\n{"a":{"en":"x"}}\nJSON`],
-  ])('denies %s, the output being cut before it is read', async (_, command) => {
+    ['a pipe', `${upsert} --styleguided abc | tail -5`],
+    ['a pipe after the stderr merge', `${upsert} --styleguided abc 2>&1 | head -3`],
+    ['a stderr pipe', `${upsert} |& head`],
+    ['a pipe on a heredoc-fed write', `cat <<'JSON' | ${upsert} | tail -3\n{"a":{"en":"x"}}\nJSON`],
+    ['stderr thrown away', `${upsert} 2>/dev/null <<'JSON'\n{"a":{"en":"x"}}\nJSON`],
+    ['stdout sent to a file', `${upsert} > out.txt`],
+    ['both streams sent to a file', `${upsert} &> out.txt`],
+  ])('denies %s, the feedback never read whole', async (_, command) => {
     const { out } = await run(['hook-pre-bash'], hookInput(command))
     expect(JSON.parse(out)).toEqual(DENIED)
   })
 
   it.each([
-    ['a plain call', `${tool} search login`],
-    ['stdin piped in', `cat <<'JSON' | ${tool} upsert-message\n{"a":{"en":"a | b"}}\nJSON`],
-    ['a pipe in the values, on a later line', `${tool} upsert-message <<'JSON'\n{"a":{"en":"a | b"}}\nJSON`],
+    ['a plain write', `${upsert} --styleguided abc`],
+    ['stdin piped in', `cat <<'JSON' | ${upsert}\n{"a":{"en":"a | b"}}\nJSON`],
+    ['stdin from a file', `${upsert} < values.json`],
+    ['a here-string holding a pipe and a redirect', `${upsert} <<< '{"a":{"en":"Next > | x"}}'`],
+    ['a pipe in the values, on a later line', `${upsert} <<'JSON'\n{"a":{"en":"a | b"}}\nJSON`],
+    ['stderr merged into stdout', `${upsert} --styleguided abc 2>&1`],
+    ['stdout merged into stderr', `${upsert} --styleguided abc >&2`],
+    ['a fallback after it', `${upsert} --styleguided abc || echo failed`],
+    ['a pipe in a later command', `${upsert} --styleguided abc && git diff | head`],
+    ['a pipe after a semicolon', `${upsert} --styleguided abc; git status | head`],
+    ['a search with a regex alternation', `${tool} search --key "Board\\.(created|rename)Description"`],
+    ['a piped search', `${tool} search login | head -40`],
+    ['a command that only names the tool', `grep -rn "loccy-tool upsert-message" src | head`],
+    ['a quoted call handed to another command', `node x hook-pre-bash-debug '${upsert} 2>/dev/null'`],
     ['a command that never runs the tool', 'git log | head'],
   ])('says nothing about %s', async (_, command) => {
     const { out, code } = await run(['hook-pre-bash'], hookInput(command))
     expect({ out, code }).toEqual({ out: '', code: 0 })
   })
 
+  it('lets the same command through on a repeat, so a misread never blocks the task', async () => {
+    const session = `test-${process.pid}-${Math.random()}`
+    const command = `${upsert} --styleguided abc | tail -5`
+
+    const first = await run(['hook-pre-bash'], hookInput(command, session))
+    expect(JSON.parse(first.out)).toEqual(DENIED)
+
+    const second = await run(['hook-pre-bash'], hookInput(command, session))
+    expect(second.out).toBe('')
+  })
+
   it('takes the command as an argument, so a replay needs no payload spelled out', async () => {
-    const { out } = await run(['hook-pre-bash-debug', `${tool} search login | head`])
+    const { out } = await run(['hook-pre-bash-debug', `${upsert} | head`])
     expect(out).toBe(`{
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "loccy-tool output is meant to be read whole, and a pipe after it reads a slice. Run the same command with nothing piped after loccy-tool."
+    "permissionDecisionReason": "${REASON}"
   }
 }`)
   })
