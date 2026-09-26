@@ -4,6 +4,9 @@ import tsParser from '@typescript-eslint/parser'
 
 export default [
   {
+    ignores: ['src/tests/test-projects/**'],
+  },
+  {
     files: ['**/*.ts'],
   },
   {
@@ -30,7 +33,6 @@ export default [
       curly: 'warn',
       eqeqeq: 'warn',
       'no-throw-literal': 'warn',
-      semi: ['warn', 'never'],
       'unused-imports/no-unused-imports': 'warn',
     },
   },
