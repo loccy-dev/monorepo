@@ -11,6 +11,28 @@
     "cancel": "Cancel"
   },
 
+  "direction": {
+    "up": "Up",
+    "down": "Down"
+  },
+
+  "page": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Everything at a glance"
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Your preferences"
+    }
+  },
+
+  "level": {
+    "0": "Low",
+    "1": "Medium",
+    "2": "High"
+  },
+
   "item_zero": "no items",
   "item_one": "You have {{count}} item",
   "item_other": "You have {{count}} items",

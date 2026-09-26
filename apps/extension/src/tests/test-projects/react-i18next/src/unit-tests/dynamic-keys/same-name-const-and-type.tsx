@@ -1,7 +1,7 @@
-import type { Mode } from './mode'
+import type { Choice } from './choice';
 
-declare function t(key: string): string
+declare function t(key: string): string;
 
-export function Toggle({ mode }: { mode: Mode }) {
-  return <p>{t(`toggle.${mode}`)}</p>
+export function ChoiceButton({ choice }: { choice: Choice }) {
+  return <button>{t(`cta.${choice}`)}</button>;
 }

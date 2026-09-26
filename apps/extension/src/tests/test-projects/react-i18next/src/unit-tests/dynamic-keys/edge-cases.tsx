@@ -1,55 +1,55 @@
-import { SignInError } from './sign-in-error';
-import type { SectionKey, Status, Tone } from './aliases';
+import { Action } from './action';
+import type { ActionValue, Movement, PageKey } from './aliases';
 
 declare function t(key: string): string;
 
-type Size = 'sm' | 'lg';
+type Direction = 'up' | 'down';
 
 enum Level {
   Low,
-  High,
+  Medium,
 }
 
 enum Priority {
-  Normal = 5,
-  Urgent,
+  Medium = 1,
+  High,
 }
 
 const labels = {
-  Title: 'title',
-  Body: 'body',
+  save: 'Save',
+  cancel: 'Cancel',
 } as const;
 
-const sizes = ['sm', 'lg'] as const;
+const directions = ['up', 'down'] as const;
 
-function getMode(): 'light' | 'dark' {
-  return Math.random() > 0.5 ? 'light' : 'dark';
+function getDirection(): 'up' | 'down' {
+  return Math.random() > 0.5 ? 'up' : 'down';
 }
 
 export function EdgeCases(
-  size: Size,
+  direction: Direction,
   labelKey: keyof typeof labels,
   index: number,
-  maybe: 'x' | undefined,
-  section: SectionKey,
-  tone: Tone,
-  status: Status,
+  maybeUp: 'up' | undefined,
+  page: PageKey,
+  movement: Movement,
+  actionValue: ActionValue,
   level: Level,
   priority: Priority,
 ) {
-  const mode = getMode();
+  const returned = getDirection();
 
   return [
-    t(`alias.${size}`),
-    t(`keyof.${labelKey}`),
-    t(`member.${SignInError.Network}`),
-    t(`tuple.${sizes[index]}`),
-    t(`call.${mode}`),
-    t(`or.${maybe || 'y'}`),
-    t(`section.${section}`),
-    t(`tone.${tone}`),
-    t(`status.${status}`),
+    t(`direction.${direction}`),
+    t(`cta.${labelKey}`),
+    t(`cta.${Action.Cancel}`),
+    t(`direction.${directions[index]}`),
+    t(`direction.${returned}`),
+    t(`direction.${maybeUp || 'down'}`),
+    t(`page.${page}.title`),
+    t(`direction.${movement}`),
+    t(`cta.${actionValue}`),
     t(`level.${level}`),
-    t(`priority.${priority}`),
+    t(`level.${priority}`),
   ];
 }

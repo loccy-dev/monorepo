@@ -1,14 +1,14 @@
-const sections = {
-  Header: 'header',
-  Footer: 'footer',
+const pages = {
+  dashboard: 'Dashboard',
+  settings: 'Settings',
 } as const
-export type SectionKey = keyof typeof sections
+export type PageKey = keyof typeof pages
 
-type Shade = 'pale' | 'deep'
-export type { Shade as Tone }
+type UpOrDown = 'up' | 'down'
+export type { UpOrDown as Movement }
 
-const statuses = {
-  Active: 'active',
-  Archived: 'archived',
+const actions = {
+  Save: 'save',
+  Cancel: 'cancel',
 } as const
-export type Status = typeof statuses[keyof typeof statuses]
+export type ActionValue = typeof actions[keyof typeof actions]

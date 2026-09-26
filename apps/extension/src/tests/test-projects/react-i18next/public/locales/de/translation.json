@@ -11,6 +11,28 @@
     "cancel": "Abbrechen"
   },
 
+  "direction": {
+    "up": "Hoch",
+    "down": "Runter"
+  },
+
+  "page": {
+    "dashboard": {
+      "title": "Übersicht",
+      "subtitle": "Alles auf einen Blick"
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "subtitle": "Deine Präferenzen"
+    }
+  },
+
+  "level": {
+    "0": "Niedrig",
+    "1": "Mittel",
+    "2": "Hoch"
+  },
+
   "item_zero": "keine Elemente",
   "item_one": "Du hast {{count}} Element",
   "item_other": "Du hast {{count}} Elemente",

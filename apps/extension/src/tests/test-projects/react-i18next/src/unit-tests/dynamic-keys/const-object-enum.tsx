@@ -1,7 +1,7 @@
-import type { SignInError } from './sign-in-error';
+import type { Action } from './action';
 
 declare function t(key: string): string;
 
-export function SignIn({ error }: { error?: SignInError }) {
-  return <p>{error ? t(`signIn.errors.${error}`) : null}</p>;
+export function ActionButton({ action }: { action?: Action }) {
+  return <button>{action ? t(`cta.${action}`) : null}</button>;
 }
