@@ -493,7 +493,7 @@ export class TypeResolver {
       true,
     )
 
-    let typeDecl = this.findDeclarationInFile(sourceFile, typeName)
+    let typeDecl = this.findTypeDeclaration(sourceFile, typeName)
     let typeDeclSourceFile = sourceFile
 
     if (!typeDecl) {
@@ -509,7 +509,7 @@ export class TypeResolver {
               ts.ScriptTarget.Latest,
               true,
             )
-            typeDecl = this.findExportedDeclaration(importedSourceFile, typeName)
+            typeDecl = this.findExportedTypeDeclaration(importedSourceFile, typeName)
             if (typeDecl) {
               typeDeclSourceFile = importedSourceFile
             }
@@ -535,16 +535,11 @@ export class TypeResolver {
     return []
   }
 
-  private findDeclarationInFile(sourceFile: ts.SourceFile, name: string): ts.Node | undefined {
+  private findTypeDeclaration(sourceFile: ts.SourceFile, name: string): ts.Node | undefined {
     let found: ts.Node | undefined
 
     function visit(node: ts.Node) {
       if (found) {
-        return
-      }
-
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
-        found = node
         return
       }
 
@@ -554,11 +549,6 @@ export class TypeResolver {
       }
 
       if (ts.isTypeAliasDeclaration(node) && node.name.text === name) {
-        found = node
-        return
-      }
-
-      if (ts.isParameter(node) && ts.isIdentifier(node.name) && node.name.text === name) {
         found = node
         return
       }
@@ -585,26 +575,18 @@ export class TypeResolver {
     return undefined
   }
 
-  private findExportedDeclaration(sourceFile: ts.SourceFile, name: string): ts.Node | undefined {
+  private findExportedTypeDeclaration(sourceFile: ts.SourceFile, name: string): ts.Node | undefined {
     for (const statement of sourceFile.statements) {
       // Named exports: export { Foo }
       if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
         const found = statement.exportClause.elements.find((element) => element.name.text === name)
         if (found) {
-          return this.findDeclarationInFile(sourceFile, found.name.text)
+          return this.findTypeDeclaration(sourceFile, found.name.text)
         }
       }
 
-      // Direct exports: export const Foo = ...
+      // Direct exports: export type Foo = ...
       if (this.hasExportModifier(statement)) {
-        if (ts.isVariableStatement(statement)) {
-          const decl = statement.declarationList.declarations.find(
-            (d) => ts.isIdentifier(d.name) && d.name.text === name,
-          )
-          if (decl) {
-            return decl
-          }
-        }
         if (ts.isEnumDeclaration(statement) && statement.name.text === name) {
           return statement
         }
@@ -615,7 +597,7 @@ export class TypeResolver {
     }
 
     // Fallback: look for non-exported declarations
-    return this.findDeclarationInFile(sourceFile, name)
+    return this.findTypeDeclaration(sourceFile, name)
   }
 
   private hasExportModifier(node: ts.Node): boolean {
@@ -748,7 +730,7 @@ export class TypeResolver {
               ts.ScriptTarget.Latest,
               true,
             )
-            const foundDecl = this.findExportedDeclaration(symbolSourceFile, typeName)
+            const foundDecl = this.findExportedTypeDeclaration(symbolSourceFile, typeName)
             if (foundDecl) {
               return { node: foundDecl, sourceFile: symbolSourceFile }
             }
