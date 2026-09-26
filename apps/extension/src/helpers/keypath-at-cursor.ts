@@ -39,6 +39,36 @@ async function getSourceKeypathInfos(document: vscode.TextDocument): Promise<Key
   return getKeyRanges(document.getText(), document.uri)
 }
 
+async function getKeypathInfos(document: vscode.TextDocument): Promise<KeypathInfo[]> {
+  const fileType = fileResolver.checkFileType(document.uri)
+  if (fileType === FileType.Resource) {
+    return getResourceKeypathInfos(document)
+  }
+  if (fileType === FileType.Source) {
+    return getSourceKeypathInfos(document)
+  }
+  return []
+}
+
+/** Keys touched by any non-empty selection, in document order. */
+export async function resolveKeypathsInSelection(): Promise<KeypathInfo[]> {
+  const editor = vscode.window.activeTextEditor
+  const selections = editor?.selections.filter((selection) => !selection.isEmpty) ?? []
+  if (!editor || !selections.length) {
+    return []
+  }
+
+  const ranges = selections.map((selection) => ({
+    start: editor.document.offsetAt(selection.start),
+    end: editor.document.offsetAt(selection.end),
+  }))
+  const keypathInfos = await getKeypathInfos(editor.document)
+
+  return keypathInfos
+    .filter(({ loc }) => ranges.some(({ start, end }) => loc.start < end && loc.end > start))
+    .sort((a, b) => a.loc.start - b.loc.start)
+}
+
 /** The key the cursor sits in, else the closest one on the same line. */
 export async function resolveKeypathAtCursor(): Promise<KeypathInfo | undefined> {
   const editor = vscode.window.activeTextEditor
@@ -46,15 +76,7 @@ export async function resolveKeypathAtCursor(): Promise<KeypathInfo | undefined>
     return undefined
   }
 
-  const fileType = fileResolver.checkFileType(editor.document.uri)
-  let keypathInfos: KeypathInfo[] = []
-
-  if (fileType === FileType.Resource) {
-    keypathInfos = getResourceKeypathInfos(editor.document)
-  } else if (fileType === FileType.Source) {
-    keypathInfos = await getSourceKeypathInfos(editor.document)
-  }
-
+  const keypathInfos = await getKeypathInfos(editor.document)
   const cursorOffset = editor.document.offsetAt(editor.selection.active)
   const atCursor = keypathInfos.find(({ loc }) => cursorOffset >= loc.start && cursorOffset <= loc.end)
   if (atCursor) {

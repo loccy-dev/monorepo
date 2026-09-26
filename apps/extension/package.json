@@ -74,7 +74,7 @@
       },
       {
         "command": "loccy.renameKeypathAtCursor",
-        "title": "Rename Keypath at Cursor",
+        "title": "Rename Keypath(s)",
         "category": "Loccy"
       },
       {
