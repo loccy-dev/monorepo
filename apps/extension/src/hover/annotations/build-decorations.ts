@@ -192,7 +192,8 @@ export function buildDecorations(
     if (showTranslationPreview) {
       preview.push({
         range: keypathLineEndRange,
-        hoverMessage: infoHoverMessage,
+        // a keypath ending its line already shows this hover at the preview
+        hoverMessage: keypathEndPos.isEqual(lineEndPos) ? undefined : infoHoverMessage,
         renderOptions: {
           after: {
             contentText: previewContentText,

@@ -295,7 +295,7 @@ export async function checkUsages(
 
     if (unusedEnabled) {
       // `loccy-used-keys` directives whitelist dynamically-built keys the scanner cannot see.
-      const usedPatterns = scanResult.usedKeyDirectives.flatMap((directive) => directive.patterns)
+      const usedPatterns = scanResult.usedKeyDirectives.map((directive) => directive.pattern)
       const unused = [...translationKeypaths]
         .filter((keypath) => !usedKeypaths.has(keypath) && !isKeypathExcluded(keypath, usedPatterns))
         .sort()
@@ -323,18 +323,16 @@ export async function checkUsages(
       // A directive matching no key means the dynamic construction it guarded is gone: flag it so
       // the comment gets removed instead of silently rotting.
       const keypaths = [...translationKeypaths]
-      for (const directive of scanResult.usedKeyDirectives) {
-        for (const pattern of directive.patterns) {
-          if (keypaths.some((keypath) => isKeypathExcluded(keypath, [pattern]))) continue
-          findings.push({
-            rule: 'noUnusedKeys',
-            kind: 'stale-directive',
-            module: module.name,
-            pattern,
-            location: { file: directive.file, line: directive.line + 1 },
-            fixable: false,
-          })
-        }
+      for (const { pattern, loc, file } of scanResult.usedKeyDirectives) {
+        if (keypaths.some((keypath) => isKeypathExcluded(keypath, [pattern]))) continue
+        findings.push({
+          rule: 'noUnusedKeys',
+          kind: 'stale-directive',
+          module: module.name,
+          pattern,
+          location: { file, line: loc.line + 1 },
+          fixable: false,
+        })
       }
     }
 

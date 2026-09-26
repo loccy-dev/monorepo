@@ -47,7 +47,7 @@ describe('UsageScanner.scan', () => {
 
   it('collects loccy-used-keys directives with their file and pattern', async () => {
     const result = await scan({ 'src/a.ts': '// loccy-used-keys: greeting.*\n' }, ['greeting.hello'])
-    expect(result.usedKeyDirectives).toEqual([expect.objectContaining({ file: 'src/a.ts', patterns: ['greeting.*'] })])
+    expect(result.usedKeyDirectives).toEqual([expect.objectContaining({ file: 'src/a.ts', pattern: 'greeting.*' })])
   })
 
   it('a file with no usages is absent from the result map', async () => {
