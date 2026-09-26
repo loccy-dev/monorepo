@@ -272,13 +272,7 @@ export class TypeResolver {
 
     while (current) {
       if (ts.isEnumDeclaration(current)) {
-        const values = current.members.map((m) => {
-          if (m.initializer && ts.isStringLiteral(m.initializer)) {
-            return m.initializer.text
-          }
-          return m.name.getText(sourceFile)
-        })
-
+        const values = this.extractEnumValues(current)
         if (values.length > 0) {
           return values
         }
@@ -300,6 +294,29 @@ export class TypeResolver {
     }
 
     return []
+  }
+
+  private extractEnumValues(declaration: ts.EnumDeclaration): string[] {
+    const values: string[] = []
+    let next: number | undefined = 0
+
+    for (const { initializer } of declaration.members) {
+      if (!initializer && next !== undefined) {
+        values.push(String(next))
+        next++
+      } else if (initializer && ts.isStringLiteral(initializer)) {
+        values.push(initializer.text)
+        next = undefined
+      } else if (initializer && ts.isNumericLiteral(initializer)) {
+        const value = Number(initializer.text)
+        values.push(String(value))
+        next = value + 1
+      } else {
+        return []
+      }
+    }
+
+    return values
   }
 
   private findPropertyTypeInNode(node: ts.Node, propertyName: string, sourceFile: ts.SourceFile): string[] {

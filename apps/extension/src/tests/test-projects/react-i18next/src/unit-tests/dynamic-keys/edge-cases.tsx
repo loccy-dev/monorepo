@@ -5,6 +5,16 @@ declare function t(key: string): string;
 
 type Size = 'sm' | 'lg';
 
+enum Level {
+  Low,
+  High,
+}
+
+enum Priority {
+  Normal = 5,
+  Urgent,
+}
+
 const labels = {
   Title: 'title',
   Body: 'body',
@@ -24,6 +34,8 @@ export function EdgeCases(
   section: SectionKey,
   tone: Tone,
   status: Status,
+  level: Level,
+  priority: Priority,
 ) {
   const mode = getMode();
 
@@ -37,5 +49,7 @@ export function EdgeCases(
     t(`section.${section}`),
     t(`tone.${tone}`),
     t(`status.${status}`),
+    t(`level.${level}`),
+    t(`priority.${priority}`),
   ];
 }

@@ -100,6 +100,12 @@ suite('dynamic key resolver', function () {
       expression: '`status.${status}`',
       keypaths: ['status.active', 'status.archived'],
     },
+    { name: 'numeric enum', expression: '`level.${level}`', keypaths: ['level.0', 'level.1'] },
+    {
+      name: 'numeric enum with explicit start',
+      expression: '`priority.${priority}`',
+      keypaths: ['priority.5', 'priority.6'],
+    },
   ]
 
   for (const { name, expression, keypaths } of edgeCases) {
