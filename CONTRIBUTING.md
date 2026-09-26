@@ -31,15 +31,30 @@ Run the full build/watch across the monorepo:
 turbo dev
 ```
 
-To launch the extension, open the repo in VS Code and press **F5** (**Run
-Extension**). It talks to the production backend.
-
-> For manual testing, open one of `apps/extension/src/tests/test-projects/*`
-> (vue-i18n, react-i18next, next-intl) as the workspace in the launched
-> Extension Development Host.
-
 > Generated files (`packages/types/schemas/*`) are produced by the build.
 > Never hand-edit them.
+
+### Try your changes
+
+Either way, the extension talks to the production backend.
+
+**Live, via F5.** Open the repo in your editor and press **F5** (**Run
+Extension**). A separate window (Extension Development Host) opens with your
+build loaded. Open one of `apps/extension/src/tests/test-projects/*`
+(vue-i18n, react-i18next, next-intl) as its workspace. Fastest loop.
+
+**Packaged, as a `.vsix`.** To try a build on your own projects in a regular
+editor window:
+
+```sh
+cd apps/extension
+npx @vscode/vsce package --no-dependencies
+code --install-extension loccy-<version>.vsix --force
+```
+
+Use your editor's CLI in place of `code`. `--force` replaces an installed
+Loccy of the same version, such as the marketplace one. Reload the window
+after installing.
 
 ## Current focus
 
