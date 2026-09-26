@@ -404,7 +404,12 @@ export class TypeResolver {
     }
 
     // (typeof obj)[keyof typeof obj]
-    if (ts.isIndexedAccessTypeNode(typeNode) && this.isKeyofTypeQuery(typeNode.indexType)) {
+    if (
+      ts.isIndexedAccessTypeNode(typeNode) &&
+      ts.isTypeOperatorNode(typeNode.indexType) &&
+      typeNode.indexType.operator === ts.SyntaxKind.KeyOfKeyword &&
+      ts.isTypeQueryNode(typeNode.indexType.type)
+    ) {
       const objectType = ts.isParenthesizedTypeNode(typeNode.objectType)
         ? typeNode.objectType.type
         : typeNode.objectType
@@ -419,29 +424,11 @@ export class TypeResolver {
       }
     }
 
-    // keyof typeof obj
-    if (this.isKeyofTypeQuery(typeNode)) {
-      const object = this.findConstObject(sourceFile, typeNode.type.exprName.getText(sourceFile))
-      if (object) {
-        return object.properties
-          .filter(ts.isPropertyAssignment)
-          .map((prop) => prop.name.getText(sourceFile).replace(/["']/g, ''))
-      }
-    }
-
     if (ts.isLiteralTypeNode(typeNode) && ts.isStringLiteral(typeNode.literal)) {
       return [typeNode.literal.text]
     }
 
     return results
-  }
-
-  private isKeyofTypeQuery(typeNode: ts.TypeNode): typeNode is ts.TypeOperatorNode & { type: ts.TypeQueryNode } {
-    return (
-      ts.isTypeOperatorNode(typeNode) &&
-      typeNode.operator === ts.SyntaxKind.KeyOfKeyword &&
-      ts.isTypeQueryNode(typeNode.type)
-    )
   }
 
   private findConstObject(sourceFile: ts.SourceFile, name: string): ts.ObjectLiteralExpression | undefined {
