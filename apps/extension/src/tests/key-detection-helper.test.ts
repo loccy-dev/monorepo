@@ -88,6 +88,4 @@ suite('keyDetectionHelper', () => {
       assert.ok(found, `Expected range not found: ${JSON.stringify(expected)}`)
     }
   })
-
-  // NOTE: dynamic key resolution tests omitted - hard to make them work since they use vscode's built-in API
 })
