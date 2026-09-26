@@ -94,6 +94,7 @@ suite('dynamic key resolver', function () {
       expression: '`section.${section}`',
       keypaths: ['section.Footer', 'section.Header'],
     },
+    { name: 'renamed type export', expression: '`tone.${tone}`', keypaths: ['tone.deep', 'tone.pale'] },
     {
       name: 'unparenthesized typeof indexed by keyof',
       expression: '`status.${status}`',

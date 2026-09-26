@@ -1,5 +1,5 @@
 import { SignInError } from './sign-in-error';
-import type { SectionKey, Status } from './aliases';
+import type { SectionKey, Status, Tone } from './aliases';
 
 declare function t(key: string): string;
 
@@ -22,6 +22,7 @@ export function EdgeCases(
   index: number,
   maybe: 'x' | undefined,
   section: SectionKey,
+  tone: Tone,
   status: Status,
 ) {
   const mode = getMode();
@@ -34,6 +35,7 @@ export function EdgeCases(
     t(`call.${mode}`),
     t(`or.${maybe || 'y'}`),
     t(`section.${section}`),
+    t(`tone.${tone}`),
     t(`status.${status}`),
   ];
 }

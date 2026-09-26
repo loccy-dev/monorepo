@@ -581,7 +581,7 @@ export class TypeResolver {
       if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
         const found = statement.exportClause.elements.find((element) => element.name.text === name)
         if (found) {
-          return this.findTypeDeclaration(sourceFile, found.name.text)
+          return this.findTypeDeclaration(sourceFile, (found.propertyName ?? found.name).text)
         }
       }
 

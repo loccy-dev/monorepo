@@ -4,6 +4,9 @@ const sections = {
 } as const
 export type SectionKey = keyof typeof sections
 
+type Shade = 'pale' | 'deep'
+export type { Shade as Tone }
+
 const statuses = {
   Active: 'active',
   Archived: 'archived',
