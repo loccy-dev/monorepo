@@ -89,6 +89,16 @@ suite('dynamic key resolver', function () {
     { name: 'as const tuple element', expression: '`tuple.${sizes[index]}`', keypaths: ['tuple.lg', 'tuple.sm'] },
     { name: 'function return type', expression: '`call.${mode}`', keypaths: ['call.dark', 'call.light'] },
     { name: 'or fallback', expression: "`or.${maybe || 'y'}`", keypaths: ['or.x', 'or.y'] },
+    {
+      name: 'imported keyof typeof alias',
+      expression: '`section.${section}`',
+      keypaths: ['section.Footer', 'section.Header'],
+    },
+    {
+      name: 'unparenthesized typeof indexed by keyof',
+      expression: '`status.${status}`',
+      keypaths: ['status.active', 'status.archived'],
+    },
   ]
 
   for (const { name, expression, keypaths } of edgeCases) {

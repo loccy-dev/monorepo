@@ -1,4 +1,5 @@
 import { SignInError } from './sign-in-error';
+import type { SectionKey, Status } from './aliases';
 
 declare function t(key: string): string;
 
@@ -15,7 +16,14 @@ function getMode(): 'light' | 'dark' {
   return Math.random() > 0.5 ? 'light' : 'dark';
 }
 
-export function EdgeCases(size: Size, labelKey: keyof typeof labels, index: number, maybe?: 'x') {
+export function EdgeCases(
+  size: Size,
+  labelKey: keyof typeof labels,
+  index: number,
+  maybe: 'x' | undefined,
+  section: SectionKey,
+  status: Status,
+) {
   const mode = getMode();
 
   return [
@@ -25,5 +33,7 @@ export function EdgeCases(size: Size, labelKey: keyof typeof labels, index: numb
     t(`tuple.${sizes[index]}`),
     t(`call.${mode}`),
     t(`or.${maybe || 'y'}`),
+    t(`section.${section}`),
+    t(`status.${status}`),
   ];
 }

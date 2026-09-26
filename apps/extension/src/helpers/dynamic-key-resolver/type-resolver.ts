@@ -292,12 +292,8 @@ export class TypeResolver {
         }
       }
 
-      // Variable declaration with const object (for typeof patterns)
-      if (ts.isVariableDeclaration(current) && current.initializer) {
-        const values = this.extractFromVariableDeclaration(current, sourceFile)
-        if (values.length > 0) {
-          return values
-        }
+      if (ts.isVariableDeclaration(current) && current.initializer && ts.isStringLiteral(current.initializer)) {
+        return [current.initializer.text]
       }
 
       current = current.parent
@@ -390,23 +386,29 @@ export class TypeResolver {
       return results
     }
 
-    // Indexed access type: typeof obj[keyof typeof obj] or (typeof obj)[keyof typeof obj]
-    if (ts.isIndexedAccessTypeNode(typeNode)) {
-      let objectType = typeNode.objectType
-
-      // Handle parenthesized type: (typeof obj)
-      if (ts.isParenthesizedTypeNode(objectType)) {
-        objectType = objectType.type
+    // (typeof obj)[keyof typeof obj]
+    if (ts.isIndexedAccessTypeNode(typeNode) && this.isKeyofTypeQuery(typeNode.indexType)) {
+      const objectType = ts.isParenthesizedTypeNode(typeNode.objectType)
+        ? typeNode.objectType.type
+        : typeNode.objectType
+      const object =
+        ts.isTypeQueryNode(objectType) && this.findConstObject(sourceFile, objectType.exprName.getText(sourceFile))
+      if (object) {
+        return object.properties
+          .filter(ts.isPropertyAssignment)
+          .map((prop) => prop.initializer)
+          .filter(ts.isStringLiteral)
+          .map((initializer) => initializer.text)
       }
+    }
 
-      if (ts.isTypeQueryNode(objectType)) {
-        const exprName = objectType.exprName
-        if (ts.isIdentifier(exprName)) {
-          const objectDecl = this.findConstObjectDeclaration(sourceFile, exprName.text)
-          if (objectDecl) {
-            return this.extractValuesFromNode(objectDecl, sourceFile)
-          }
-        }
+    // keyof typeof obj
+    if (this.isKeyofTypeQuery(typeNode)) {
+      const object = this.findConstObject(sourceFile, typeNode.type.exprName.getText(sourceFile))
+      if (object) {
+        return object.properties
+          .filter(ts.isPropertyAssignment)
+          .map((prop) => prop.name.getText(sourceFile).replace(/["']/g, ''))
       }
     }
 
@@ -417,29 +419,27 @@ export class TypeResolver {
     return results
   }
 
-  private findConstObjectDeclaration(sourceFile: ts.SourceFile, name: string): ts.VariableDeclaration | undefined {
-    let found: ts.VariableDeclaration | undefined
+  private isKeyofTypeQuery(typeNode: ts.TypeNode): typeNode is ts.TypeOperatorNode & { type: ts.TypeQueryNode } {
+    return (
+      ts.isTypeOperatorNode(typeNode) &&
+      typeNode.operator === ts.SyntaxKind.KeyOfKeyword &&
+      ts.isTypeQueryNode(typeNode.type)
+    )
+  }
+
+  private findConstObject(sourceFile: ts.SourceFile, name: string): ts.ObjectLiteralExpression | undefined {
+    let found: ts.ObjectLiteralExpression | undefined
 
     function visit(node: ts.Node) {
       if (found) {
         return
       }
 
-      if (ts.isVariableStatement(node)) {
-        const declaration = node.declarationList.declarations.find((decl) => {
-          if (!ts.isIdentifier(decl.name) || decl.name.text !== name || !decl.initializer) {
-            return false
-          }
-
-          // Direct object literal or "as const" pattern
-          return (
-            ts.isObjectLiteralExpression(decl.initializer) ||
-            (ts.isAsExpression(decl.initializer) && ts.isObjectLiteralExpression(decl.initializer.expression))
-          )
-        })
-
-        if (declaration) {
-          found = declaration
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer) {
+        // Direct object literal or "as const" pattern
+        const initializer = ts.isAsExpression(node.initializer) ? node.initializer.expression : node.initializer
+        if (ts.isObjectLiteralExpression(initializer)) {
+          found = initializer
           return
         }
       }
@@ -449,41 +449,6 @@ export class TypeResolver {
 
     visit(sourceFile)
     return found
-  }
-
-  private extractFromVariableDeclaration(declaration: ts.VariableDeclaration, sourceFile: ts.SourceFile): string[] {
-    if (!declaration.initializer) {
-      return []
-    }
-
-    const initializer = declaration.initializer
-
-    // Direct object literal: const foo = { A: "A", B: "B" }
-    if (ts.isObjectLiteralExpression(initializer)) {
-      return this.extractFromObjectLiteral(initializer, sourceFile)
-    }
-
-    // As const expression: const foo = { A: "A" } as const
-    if (ts.isAsExpression(initializer) && ts.isObjectLiteralExpression(initializer.expression)) {
-      return this.extractFromObjectLiteral(initializer.expression, sourceFile)
-    }
-
-    // String literal: const foo = "value"
-    if (ts.isStringLiteral(initializer)) {
-      return [initializer.text]
-    }
-
-    return []
-  }
-
-  private extractFromObjectLiteral(objectLiteral: ts.ObjectLiteralExpression, sourceFile: ts.SourceFile): string[] {
-    return objectLiteral.properties
-      .filter(ts.isPropertyAssignment)
-      .map((prop) => {
-        const name = prop.name.getText(sourceFile).replace(/["']/g, '')
-        return name
-      })
-      .filter((name) => name.length > 0)
   }
 
   private async resolveTypeReference(typeName: string, position: vscode.Position): Promise<string[]> {
