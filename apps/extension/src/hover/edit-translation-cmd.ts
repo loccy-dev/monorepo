@@ -15,9 +15,9 @@ import type { Loc } from '@repo/types/platform.types'
 import type { LocalizedText, Namespace } from '@repo/types/primitives.types'
 import { resourceService } from '../helpers/resource-service'
 import { LucideIcon } from '../lucide-icons'
+import { adjustAllWithPrompt } from './adjust-all-with-prompt'
 
 enum Step {
-  Start = 'Start',
   EditManually = 'EditManually',
   PromptInput = 'PromptInput',
   PromptSelectVariant = 'PromptSelectVariant',
@@ -53,7 +53,6 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
   )
   const allOtherNonEmptyTranslations = Object.fromEntries(Object.entries(allOtherTranslations).filter(([, v]) => !!v))
   const allOthersEmpty = Object.keys(allOtherNonEmptyTranslations).length === 0
-  const skipToManualEdit = !currTranslationText && allOthersEmpty
 
   let initialDraft = ''
   let promptHistory: PromptHistory<AutoRefineOutput[number]>[] = []
@@ -63,28 +62,9 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
 
   // prettier-ignore
   const quickPickConfig: QuickPickConfig<Step> = {
-    [Step.Start]: {
-      title: `Edit ${translationTitle}`,
-      placeholder: 'Select action',
-      commands: [
-        {
-          icon: LucideIcon.PENCIL, label: 'Edit manually...', action: Step.EditManually
-        },
-        {
-          icon: LucideIcon.MESSAGE_SQUARE_TEXT, label: 'Adjust with prompt...', action: Step.PromptInput,
-          enabled: () => !!currTranslationText,
-        },
-        {
-          icon: LucideIcon.LANGUAGES, label: 'Translate', description: `Fill ${localeCodeFormatted} translation based on all others`, action: autoTranslate,
-          enabled: () => !currTranslationText,
-        },
-      ]
-    },
-
     [Step.EditManually]: {
-      backBtn: skipToManualEdit ? undefined : Step.Start,
-      title: skipToManualEdit ? `Edit ${translationTitle}` : `Edit manually ${translationTitle}`,
-      placeholder: 'Type the new value',
+      title: `Edit ${translationTitle}`,
+      placeholder: 'New value, or an instruction for AI',
       inputValue: currTranslationText,
       // cyrillic letters on labels on purpose - so items aren't resorted on user input
       // keep in (partial) sync with PromptSaveResult step!
@@ -99,7 +79,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
           icon: LucideIcon.CHECK, label: 'Sаvе аs еmрtу', description: `${localeCodeFormatted} translation will be removed`, action: save,
           alwaysShow: true,
           picked: true,
-          enabled: ({ inputValue }) => !inputValue && !skipToManualEdit && !!currTranslationText
+          enabled: ({ inputValue }) => !inputValue && !!currTranslationText
         },
         {
           icon: LucideIcon.CHECK_CHECK, label: 'Sаvе аnd sync others', description: 'Auto-apply same change to all other locales', action: saveAndSyncOthers,
@@ -115,6 +95,21 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
           icon: LucideIcon.SPELL_CHECK_2, label: 'Аutо-finаlizе drаft', description: 'Check grammar, style, consistency, and project rules', action: refineDraft,
           alwaysShow: true,
           enabled: ({ inputValue }) => !!inputValue && inputValue !== currTranslationText,
+        },
+        {
+          icon: LucideIcon.LANGUAGES, label: 'Trаnslаtе', description: `Fill ${localeCodeFormatted} translation based on all others`, action: autoTranslate,
+          alwaysShow: true,
+          enabled: ({ inputValue }) => !inputValue && !currTranslationText && !allOthersEmpty,
+        },
+        {
+          icon: LucideIcon.MESSAGE_SQUARE_TEXT, label: 'Usе аs АI instruсtiоn', description: `Rewrite ${localeCodeFormatted} following your text`, action: submitPrompt,
+          alwaysShow: true,
+          enabled: ({ inputValue }) => !!inputValue && !!currTranslationText && inputValue !== currTranslationText,
+        },
+        {
+          icon: LucideIcon.MESSAGE_SQUARE_TEXT, label: 'Usе аs АI instruсtiоn fоr аll lосаlеs', description: 'Rewrite all translations, then review', action: submitPromptForAll,
+          alwaysShow: true,
+          enabled: ({ inputValue }) => !!inputValue && !!currTranslationText && inputValue !== currTranslationText && !allOthersEmpty,
         },
       ]
     },
@@ -180,10 +175,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
     }
   }
 
-  const quickPick = new ControlledQuickPicker(quickPickConfig)
-  if (skipToManualEdit) {
-    quickPick.controls.goToStep(Step.EditManually)
-  }
+  new ControlledQuickPicker(quickPickConfig)
 
   // HELPERS
 
@@ -200,7 +192,8 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
     const lastHistoryEntry = last(promptHistory)!
     if (lastHistoryEntry.prompt) {
       promptHistory.pop()
-      controls.goToStep(Step.PromptInput)
+      // the first prompt is typed into the edit step itself
+      controls.goToStep(promptHistory.length ? Step.PromptInput : Step.EditManually)
       controls.setInputValue(lastHistoryEntry.prompt)
     } else {
       // prompt input could be skipped in system commands: auto-translate, auto-fix, etc
@@ -212,8 +205,8 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
         controls.setInputValue(initialDraft)
         initialDraft = ''
       } else {
-        // flow started from Step.Start
-        controls.goToStep(Step.Start)
+        // flow started from Step.EditManually without a draft (e.g. "translate")
+        controls.goToStep(Step.EditManually)
       }
     }
   }
@@ -222,7 +215,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
     if (!promptHistory.length) {
       // entered "tell AI ..." and instanly returned back
       // OR reached end of history
-      controls.goToStep(Step.Start)
+      controls.goToStep(Step.EditManually)
       return
     }
 
@@ -258,7 +251,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
           snackbar: 'Invalid response, please try again',
           internal: 'translateFromOthers',
         })
-        controls.goToStep(Step.Start)
+        controls.goToStep(Step.EditManually)
         return
       }
 
@@ -271,7 +264,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
 
       controls.setLoading(false)
     } catch (error) {
-      controls.goToStep(Step.Start)
+      controls.goToStep(Step.EditManually)
       handleAiApiError(error)
     }
   }
@@ -291,7 +284,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
     )
     if (!response) {
       handleError({ snackbar: 'Invalid response, please try again', internal: 'translateMultipleFromOthers' })
-      controls.goToStep(Step.Start)
+      controls.goToStep(Step.EditManually)
       return
     }
 
@@ -500,6 +493,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
 
   async function submitPrompt(controls: QuickPickControls<Step>) {
     const prompt = controls.inputValue
+    const promptStep = controls.currentStep
     const valueToChange = last(promptHistory)?.selectedVariant?.text || currTranslationText
     promptHistory.push({ prompt })
     controls.setLoading(true)
@@ -509,7 +503,7 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
       const response = await aiClient.adjustOne(args.locale, prompt, valueToChange)
       const result = response?.result
 
-      if (controls.currentStep !== Step.PromptInput) {
+      if (controls.currentStep !== promptStep) {
         // clicked back while loading
         return
       }
@@ -519,6 +513,8 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
           snackbar: 'Invalid response, please try again',
           internal: 'submitPrompt',
         })
+        promptHistory.pop()
+        controls.setLoading(false)
         return
       }
 
@@ -534,6 +530,15 @@ export async function editTranslationCmd(args: CmdEditTranslationArgs) {
       controls.setLoading(false)
       handleAiApiError(error)
     }
+  }
+
+  function submitPromptForAll(controls: QuickPickControls<Step>) {
+    adjustAllWithPrompt(controls, {
+      prompt: controls.inputValue,
+      keypath: args.keypath,
+      namespace: args.namespace,
+      moduleName,
+    })
   }
 
   async function selectVariant(controls: QuickPickControls<Step>, selectedVariant: AutoRefineOutput[number]) {
