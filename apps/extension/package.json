@@ -255,7 +255,7 @@
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "vscode:prepublish": "npm run package",
     "package": "npm run typecheck && node esbuild.js --production",
-    "build-vsix": "npm run package && vsce package --no-dependencies",
+    "build-vsix": "vsce package --no-dependencies",
     "publish:patch": "vsce publish patch --no-dependencies",
     "publish:minor": "vsce publish minor --no-dependencies",
     "publish:major": "vsce publish major --no-dependencies",
