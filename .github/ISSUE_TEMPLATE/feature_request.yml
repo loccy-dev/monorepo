@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an idea or improvement
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options:
+        - Editor extension
+        - i18n linter
+        - Claude Code plugin
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What would you like?
+      description: The problem you're facing and how you'd like it solved.
+    validations:
+      required: true

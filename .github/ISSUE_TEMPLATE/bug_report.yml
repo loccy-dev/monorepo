@@ -1,0 +1,91 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options:
+        - Editor extension
+        - i18n linter
+        - Claude Code plugin
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: e.g. 1.9.7
+    validations:
+      required: true
+  - type: textarea
+    id: bug
+    attributes:
+      label: Bug
+      description: A short description of what's wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal code, files, or commands that trigger it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Error messages, CLI output, or the extension's Output panel (Loccy channel).
+      render: text
+  - type: dropdown
+    id: framework
+    attributes:
+      label: i18n framework
+      options:
+        - react-i18next
+        - vue-i18n
+        - next-intl
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: layout
+    attributes:
+      label: Translation files layout
+      options:
+        - One file per locale (e.g. en.json)
+        - One file per locale and namespace (e.g. en/common.json)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: Translation file format
+      options:
+        - JSON
+        - YAML
+        - JS / TS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: loccy.yaml
+      description: Everything above `styleguide`, if you have a config.
+      render: yaml
