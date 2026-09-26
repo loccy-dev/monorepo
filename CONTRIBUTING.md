@@ -49,12 +49,10 @@ editor window:
 ```sh
 cd apps/extension
 npx @vscode/vsce package --no-dependencies
-code --install-extension loccy-<version>.vsix --force
+code --install-extension loccy-<version>.vsix
 ```
 
-Use your editor's CLI in place of `code`. `--force` replaces an installed
-Loccy of the same version, such as the marketplace one. Reload the window
-after installing.
+Use your editor's CLI in place of `code`, then reload the window.
 
 ## Current focus
 
