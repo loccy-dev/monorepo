@@ -50,7 +50,12 @@ export async function inputKeypath({
     const newItems: Command<Step>[] = []
 
     if (trimmed) {
-      const validationError = newKeypathValidationError(trimmed, initValue, namespace, prefix, moduleName)
+      const validationError = keypathValidationError(trimmed, {
+        existingKeypaths: Object.keys(resourceService.getFlatTranslationsPerKeypath(namespace, moduleName)),
+        structure: resourceService.keypathStructure(namespace, moduleName),
+        renamedFrom: initValue,
+        prefix,
+      })
       newItems.push({
         ...saveKeypathItem,
         label: trimmed,
@@ -126,12 +131,17 @@ export async function inputKeypath({
   })
 }
 
-function newKeypathValidationError(
+interface KeypathValidationContext {
+  existingKeypaths: string[]
+  structure: 'nested' | 'flat'
+  /** The keypath being renamed; its own node may be nested into. */
+  renamedFrom?: string
+  prefix?: string
+}
+
+export function keypathValidationError(
   keypath: string,
-  renamedFrom: string | undefined,
-  namespace?: Namespace,
-  prefix?: string,
-  moduleName?: string,
+  { existingKeypaths, structure, renamedFrom, prefix }: KeypathValidationContext,
 ): string | undefined {
   const endsWithDot = keypath.endsWith('.')
   if (endsWithDot) {
@@ -142,17 +152,12 @@ function newKeypathValidationError(
     return `Keypath must start with prefix "${prefix}."`
   }
 
-  const existingKeypaths = Object.keys(resourceService.getFlatTranslationsPerKeypath(namespace, moduleName))
-  const alreadyExists = existingKeypaths.includes(keypath)
-
-  if (alreadyExists) {
+  if (existingKeypaths.includes(keypath)) {
     return 'Keypath already exists'
   }
 
-  if (resourceService.keypathStructure(namespace, moduleName) === 'flat') {
-    if (!alreadyExists) {
-      return
-    }
+  if (structure === 'flat') {
+    return
   }
 
   const nestingInsideString = existingKeypaths.find(

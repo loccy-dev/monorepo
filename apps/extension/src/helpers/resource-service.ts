@@ -22,6 +22,13 @@ import { createVscodePlatform, loccyRoot, toRootRelative } from './vscode-platfo
 import { matchesGlobs, sourceModuleNames as modulesClaimingSource } from '@repo/shared/core/files/module-globs'
 import type { LayoutPattern } from '@repo/types/config.types'
 
+export interface KeypathRename {
+  from: string
+  to: string
+  namespace?: Namespace
+  moduleName?: string
+}
+
 /** A file read from disk for (re)building a module's `ResourceManager`. */
 interface ModuleFile {
   uri: vscode.Uri
@@ -748,7 +755,7 @@ export class ResourceService {
     return { affectedUris }
   }
 
-  /** Update the in-memory model immediately (disk write follows via `collectUpdateKeyChanges`). */
+  /** Update the in-memory model immediately (disk write follows via `collectRenameChanges`). */
   async renameKeypathInternally(oldKeypath: string, newKeypath: string, namespace?: string, moduleName?: string) {
     const view = this.viewForWrite(moduleName)
     if (!view) {
@@ -778,45 +785,57 @@ export class ResourceService {
     )
   }
 
-  /** Build atomic rename edits (key rename + linked-ref rewrite) for the owning module's files. */
-  async collectUpdateKeyChanges(
-    workspaceEdit: vscode.WorkspaceEdit,
-    oldKeypath: string,
-    newKeypath: string,
-    namespace?: string,
-    moduleName?: string,
-  ) {
-    const view = this.viewForWrite(moduleName)
-    if (!view) {
-      return
-    }
-    const ns = namespace ?? view.defaultNs
-
-    // non-mutating: rename via throwaway manager off LIVE content (not disk) — honors unsaved state
-    const currentContents = view.manager.getAllFileContents()
-    const temp = new ResourceManager(
-      this.managerConfig(view.module, view.defaultNs),
-      [...currentContents].map(([relativePath, content]) => ({ relativePath, content })),
-    )
-    temp.renameKeypath(oldKeypath, newKeypath, ns)
-    const post = temp.getAllFileContents()
-    const linked = rewriteLinkedRefsInContents(
-      post,
-      view.manager.getFileLocaleMap(),
-      view.module.framework,
-      oldKeypath,
-      newKeypath,
-      ns,
-    )
-
-    for (const [relativePath, original] of currentContents) {
-      const content = linked.get(relativePath) ?? post.get(relativePath) ?? original
-      if (content !== original) {
-        const uri = this.relToUri(relativePath)
-        const document = await vscode.workspace.openTextDocument(uri)
-        const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length))
-        workspaceEdit.replace(uri, fullRange, content)
+  /**
+   * Resource file contents after applying `renames` in order (key rename + linked-ref rewrite), changed files only.
+   * Non-mutating: renames a throwaway manager off LIVE content (not disk), so unsaved state is honored.
+   */
+  renamedFileContents(renames: KeypathRename[]): Map<string, string> {
+    const renamesPerView = new Map<ModuleView, KeypathRename[]>()
+    for (const rename of renames) {
+      const view = this.viewForWrite(rename.moduleName)
+      if (view) {
+        renamesPerView.set(view, [...(renamesPerView.get(view) ?? []), rename])
       }
+    }
+
+    const changed = new Map<string, string>()
+    for (const [view, viewRenames] of renamesPerView) {
+      const currentContents = view.manager.getAllFileContents()
+      const temp = new ResourceManager(
+        this.managerConfig(view.module, view.defaultNs),
+        [...currentContents].map(([relativePath, content]) => ({ relativePath, content })),
+      )
+      for (const { from, to, namespace } of viewRenames) {
+        temp.renameKeypath(from, to, namespace ?? view.defaultNs)
+      }
+
+      let contents = temp.getAllFileContents()
+      for (const { from, to, namespace } of viewRenames) {
+        const linked = rewriteLinkedRefsInContents(
+          contents,
+          view.manager.getFileLocaleMap(),
+          view.module.framework,
+          from,
+          to,
+          namespace ?? view.defaultNs,
+        )
+        contents = new Map([...contents, ...linked])
+      }
+
+      for (const [relativePath, original] of currentContents) {
+        const content = contents.get(relativePath) ?? original
+        if (content !== original) {
+          changed.set(relativePath, content)
+        }
+      }
+    }
+    return changed
+  }
+
+  /** Stage `renamedFileContents` as one full-file replace per file, so batched renames never overlap. */
+  async collectRenameChanges(workspaceEdit: vscode.WorkspaceEdit, renames: KeypathRename[]) {
+    for (const [relativePath, content] of this.renamedFileContents(renames)) {
+      await this.stageFileWrite(workspaceEdit, relativePath, content)
     }
   }
 }

@@ -29,6 +29,8 @@ export enum TelemetryEvent {
   // keypath editing
   actionsWithTranslations_editKeypath = 'actionsWithTranslations_editKeypath',
   actionsWithTranslations_editKeypath_done = 'actionsWithTranslations_editKeypath_done',
+  renameKeypaths = 'renameKeypaths',
+  renameKeypaths_done = 'renameKeypaths_done', // {count: <number>}
 
   editTranslation = 'editTranslation',
   editTranslation_save = 'editTranslation_save',

@@ -1,14 +1,21 @@
 import * as vscode from 'vscode'
 import type { KeypathInfo } from '@repo/types/framework.types'
-import { resolveKeypathAtCursor } from '../helpers/keypath-at-cursor'
+import { resolveKeypathAtCursor, resolveKeypathsInSelection } from '../helpers/keypath-at-cursor'
 import { resourceService } from '../helpers/resource-service'
 import { renameKeypathCmd } from '../hover/rename-keypath-cmd'
 import { editAsJsonCmd } from '../hover/edit-as-json-cmd'
 import { editTranslationCmd } from '../hover/edit-translation-cmd'
+import { renameKeypathsCmd } from './rename-keypaths-cmd'
 
 const EDIT_ALL_AS_JSON = 'Edit all translations manually'
 
 export async function renameKeypathAtCursorCmd(context: vscode.ExtensionContext) {
+  const selected = await resolveKeypathsInSelection()
+  if (selected.length > 1) {
+    await renameKeypathsCmd(selected)
+    return
+  }
+
   const target = await resolveTarget()
   if (!target) {
     return
