@@ -92,7 +92,7 @@ Auto-fills all empty translations in a message. Click the three dots in the hove
 
 ### 5 • Adjust with a prompt
 
-Rewrite text with a free-form instruction. For all translations at once, click the three dots in the hover menu. For a single one, click the pencil button, then choose **Adjust with prompt...**.
+Rewrite text with a free-form instruction. For all translations at once, click the three dots in the hover menu. For a single one, click the pencil button, type the instruction instead of a new value, then choose **Use as AI instruction** (or **Use as AI instruction for all locales**).
 
 ![Rewriting translations with a free-form prompt](https://loccy.dev/extension-features/gif/prompt.gif)
 

@@ -1,6 +1,5 @@
-import { cloneDeep, isEqual } from 'lodash'
+import { cloneDeep } from 'lodash'
 import * as vscode from 'vscode'
-import { updateAnnotations } from './annotations'
 import { handleAiApiError } from '../api/handle-ai-api-error'
 import { aiClient } from '../api/ai-client'
 import { ControlledQuickPicker, QuickPickConfig, QuickPickControls } from '../helpers/controlled-quick-picker'
@@ -12,6 +11,7 @@ import { reportEvent } from '../telemetry/telemetry'
 import { usageService } from '../helpers/usage-service'
 import { editAsJsonCmd } from './edit-as-json-cmd'
 import { renameKeypathCmd } from './rename-keypath-cmd'
+import { adjustAllWithPrompt } from './adjust-all-with-prompt'
 import { resourceService } from '../helpers/resource-service'
 import { LucideIcon } from '../lucide-icons'
 
@@ -158,62 +158,12 @@ export async function actionsWithTranslationsCmd(
     })
   }
 
-  async function submitPrompt(controls: QuickPickControls<Step>) {
-    reportEvent(TelemetryEvent.actionsWithTranslations_editViaPrompt)
-    controls.setLoading(true)
-    try {
-      const response = await aiClient.adjustAll(controls.inputValue, existingTranslationsLocalizedText)
-      const result = response?.result
-
-      controls.setLoading(false)
-
-      if (!result) {
-        handleError({ snackbar: 'Invalid response, please try again' })
-        return
-      }
-
-      if (isEqual(existingTranslationsLocalizedText, result)) {
-        handleError({ snackbar: 'No updates, please try different change' })
-        return
-      }
-
-      controls.dispose()
-
-      saveWithDiffReview([
-        {
-          originalObject: singleKeypathEntries(args.keypath, existingTranslationsLocalizedText),
-          updatedObject: singleKeypathEntries(args.keypath, result),
-          saveCallback: async (finalResult) => {
-            const values = finalResult[args.keypath] ?? {}
-            if (isEqual(existingTranslationsLocalizedText, values)) {
-              // just close silently
-              return
-            }
-
-            const success = await resourceService.updateValues(values, args.keypath, args.namespace, moduleName)
-            if (!success) {
-              handleError({
-                snackbar: 'Failed to save updated translations',
-                internal: 'actionsWithTranslationsCmd:submitPrompt - saving updated translations failed',
-              })
-              return
-            }
-
-            updateAnnotations()
-            vscode.window.showInformationMessage('Translations updated successfully')
-
-            reportEvent(TelemetryEvent.actionsWithTranslations_editViaPrompt_done, {
-              prompt: controls.inputValue,
-            })
-          },
-          options: {
-            title: `Review changes for: "${controls.inputValue}"`,
-          },
-        },
-      ])
-    } catch (error: any) {
-      controls.setLoading(false)
-      handleAiApiError(error)
-    }
+  function submitPrompt(controls: QuickPickControls<Step>) {
+    adjustAllWithPrompt(controls, {
+      prompt: controls.inputValue,
+      keypath: args.keypath,
+      namespace: args.namespace,
+      moduleName,
+    })
   }
 }
