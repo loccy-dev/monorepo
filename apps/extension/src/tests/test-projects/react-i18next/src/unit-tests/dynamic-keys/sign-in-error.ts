@@ -5,5 +5,5 @@ export const SignInError = {
   RateLimited: 'rateLimited',
   Network: 'network',
   Unknown: 'unknown',
-} as const;
+} as const
 export type SignInError = (typeof SignInError)[keyof typeof SignInError];

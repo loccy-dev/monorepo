@@ -109,4 +109,10 @@ suite('dynamic key resolver', function () {
       'signIn.errors.unknown',
     ])
   })
+
+  test('type reference resolves to the type, not a same-named const', async () => {
+    const keypaths = await resolveKeypaths('same-name-const-and-type.tsx', '`toggle.${mode}`')
+
+    assert.deepStrictEqual(keypaths, ['toggle.off', 'toggle.on'])
+  })
 })
