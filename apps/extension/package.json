@@ -256,9 +256,10 @@
     "vscode:prepublish": "npm run package",
     "package": "npm run typecheck && node esbuild.js --production",
     "build-vsix": "vsce package --no-dependencies",
-    "publish:patch": "vsce publish patch --no-dependencies",
-    "publish:minor": "vsce publish minor --no-dependencies",
-    "publish:major": "vsce publish major --no-dependencies",
+    "publish:vsix": "vsce publish --packagePath dist/loccy.vsix && ovsx publish dist/loccy.vsix",
+    "publish:patch": "vsce package patch --no-dependencies -o dist/loccy.vsix && npm run publish:vsix",
+    "publish:minor": "vsce package minor --no-dependencies -o dist/loccy.vsix && npm run publish:vsix",
+    "publish:major": "vsce package major --no-dependencies -o dist/loccy.vsix && npm run publish:vsix",
     "postinstall": "node tools/postinstall.js",
     "lint": "npm run typecheck && prettier --check \"./src\" && eslint src --fix",
     "format": "prettier ./src --write --list-different --no-error-on-unmatched-pattern",
@@ -301,6 +302,7 @@
     "lucide-static": "^1.8.0",
     "mocha": "^11.7.5",
     "npm-run-all": "^4.1.5",
+    "ovsx": "^1.2.0",
     "prettier": "^3.8.2"
   }
 }
