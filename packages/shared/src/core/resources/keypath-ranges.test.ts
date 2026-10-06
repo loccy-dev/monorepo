@@ -15,6 +15,14 @@ describe('jsonKeypathRanges', () => {
     expect(slices['c']).toBe('"c": "y"')
   })
 
+  it('reports the 1-based line of each key', () => {
+    const text = '{\n  "a": {\n    "b": "x"\n  },\n\n  "c": "y"\n}\n'
+    expect(jsonKeypathRanges(text).map((r) => [r.keypath, r.loc.line])).toEqual([
+      ['a.b', 3],
+      ['c', 6],
+    ])
+  })
+
   it('ignores arrays and non-string leaves are still located', () => {
     const text = '{ "n": 5, "list": ["a","b"], "s": "t" }'
     expect(
@@ -66,5 +74,9 @@ describe('phpArrayKeypathRanges', () => {
     expect(ranges.map((r) => r.keypath).sort()).toEqual(['a.b', 'c'])
     expect(at(text, ranges)['a.b']).toBe("'b' => 'x'")
     expect(at(text, ranges)['c']).toBe("'c' => 'y'")
+    expect(ranges.map((r) => [r.keypath, r.loc.line])).toEqual([
+      ['a.b', 5],
+      ['c', 7],
+    ])
   })
 })

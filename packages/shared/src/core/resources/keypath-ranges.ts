@@ -3,11 +3,17 @@
 // reserialize) — these power in-editor annotations, one scanner per resource format.
 
 import type { KeypathRange } from '../contracts'
-import { getLineIndex } from '../helpers/helpers'
 
-/** Line number (1-based) of a character offset. */
-function lineAt(text: string, offset: number): number {
-  return getLineIndex(text, offset) + 1
+/** 1-based line lookup for ascending offsets: each call resumes where the previous one stopped. */
+function ascendingLineLookup(text: string): (offset: number) => number {
+  let line = 1
+  let scanned = 0
+  return (offset) => {
+    for (; scanned < offset; scanned++) {
+      if (text[scanned] === '\n') line++
+    }
+    return line
+  }
 }
 
 /** Start offset of each line in `lines` (the same split array the caller iterates). */
@@ -29,6 +35,7 @@ function lineStartOffsets(lines: string[]): number[] {
  */
 export function jsonKeypathRanges(text: string): KeypathRange[] {
   const result: KeypathRange[] = []
+  const lineAt = ascendingLineLookup(text)
   const start = text.indexOf('{')
   if (start === -1) return result
 
@@ -106,7 +113,7 @@ export function jsonKeypathRanges(text: string): KeypathRange[] {
       const isLeaf = text[valueStart] !== '{' && text[valueStart] !== '['
       parseValue(keyPath)
       if (isLeaf) {
-        result.push({ keypath: keyPath.join('.'), loc: { start: keyStart, end: pos, line: lineAt(text, keyStart) } })
+        result.push({ keypath: keyPath.join('.'), loc: { start: keyStart, end: pos, line: lineAt(keyStart) } })
       }
 
       skipWs()
@@ -227,6 +234,7 @@ export function propertiesKeypathRanges(text: string): KeypathRange[] {
 /** Scan a `<?php return [ 'k' => 'v', 'nested' => [ … ] ];` document. */
 export function phpArrayKeypathRanges(text: string): KeypathRange[] {
   const result: KeypathRange[] = []
+  const lineAt = ascendingLineLookup(text)
   const stack: string[] = []
   let pos = 0
 
@@ -288,7 +296,7 @@ export function phpArrayKeypathRanges(text: string): KeypathRange[] {
           const path = [...stack.filter(Boolean), key].join('.')
           if (text[pos] === '"' || text[pos] === "'") readString()
           else while (pos < text.length && !/[,\]]/.test(text[pos]!)) pos++
-          result.push({ keypath: path, loc: { start: keyStart, end: pos, line: lineAt(text, keyStart) } })
+          result.push({ keypath: path, loc: { start: keyStart, end: pos, line: lineAt(keyStart) } })
         }
       }
       continue
