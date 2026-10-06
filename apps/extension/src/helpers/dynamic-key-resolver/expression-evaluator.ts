@@ -211,13 +211,14 @@ export class ExpressionEvaluator {
   }
 
   private async evaluateElementAccess(node: ts.ElementAccessExpression): Promise<string[]> {
-    const position = this.getPositionInDocument(node)
+    const object = ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node.expression
+    const position = this.getPositionInDocument(object)
     if (!position) {
       this.markGeneric()
       return []
     }
 
-    return await this.typeResolver.getTypeValuesAtPosition(position)
+    return await this.typeResolver.getElementValuesAtPosition(position)
   }
 
   private getPositionInDocument(node: ts.Node): vscode.Position | null {

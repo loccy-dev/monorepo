@@ -51,6 +51,14 @@ export class TypeResolver {
     return []
   }
 
+  async getElementValuesAtPosition(objectPosition: vscode.Position): Promise<string[]> {
+    // Initializer first: hovers truncate large types
+    const values = await this.extractElementValuesFromInitializer(objectPosition)
+    debug('Element values from initializer', values)
+
+    return values.length > 0 ? values : await this.extractElementValuesFromType(objectPosition)
+  }
+
   async getPropertyTypeFromObject(objectPosition: vscode.Position, propertyName: string): Promise<string[]> {
     try {
       const typeDefs = await vscode.commands.executeCommand<vscode.Location[]>(
@@ -64,16 +72,10 @@ export class TypeResolver {
       }
 
       for (const typeDef of typeDefs) {
-        const doc = await vscode.workspace.openTextDocument(typeDef.uri)
-        const text = doc.getText()
-
-        const sourceFile = ts.createSourceFile(doc.fileName, text, ts.ScriptTarget.Latest, true)
-
-        const offset = doc.offsetAt(typeDef.range.start)
-        const node = this.findNodeAtPosition(sourceFile, offset)
+        const node = await this.findNodeAtLocation(typeDef.uri, typeDef.range.start)
 
         if (node) {
-          const propertyValues = this.findPropertyTypeInNode(node, propertyName, sourceFile)
+          const propertyValues = this.findPropertyTypeInNode(node, propertyName, node.getSourceFile())
           if (propertyValues.length > 0) {
             return propertyValues
           }
@@ -85,6 +87,134 @@ export class TypeResolver {
       debug('Error getting property type from object:', error)
       return []
     }
+  }
+
+  private async extractElementValuesFromType(objectPosition: vscode.Position): Promise<string[]> {
+    try {
+      const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+        'vscode.executeHoverProvider',
+        this.document.uri,
+        objectPosition,
+      )
+
+      for (const hover of hovers ?? []) {
+        for (const code of this.extractHoverCodeBlocks(hover)) {
+          const type = this.parseDeclaredType(code)
+          const values = type ? this.extractElementLiterals(type) : []
+          if (values.length > 0) {
+            return values
+          }
+        }
+      }
+
+      return []
+    } catch (error) {
+      debug('Element type error:', error)
+      return []
+    }
+  }
+
+  private parseDeclaredType(hoverCode: string): ts.TypeNode | undefined {
+    const typeText = hoverCode.slice(hoverCode.indexOf(':') + 1)
+    const sourceFile = ts.createSourceFile('hover.ts', `type T = ${typeText}`, ts.ScriptTarget.Latest, true)
+    const statement = sourceFile.statements[0]
+
+    return statement && ts.isTypeAliasDeclaration(statement) ? statement.type : undefined
+  }
+
+  private extractElementLiterals(type: ts.TypeNode): string[] {
+    const sourceFile = type.getSourceFile()
+
+    if (ts.isTypeOperatorNode(type) && type.operator === ts.SyntaxKind.ReadonlyKeyword) {
+      return this.extractElementLiterals(type.type)
+    }
+
+    if (ts.isTupleTypeNode(type)) {
+      return type.elements.flatMap((element) => this.extractStringLiterals(element, sourceFile))
+    }
+
+    if (ts.isArrayTypeNode(type)) {
+      return this.extractStringLiterals(type.elementType, sourceFile)
+    }
+
+    if (ts.isTypeLiteralNode(type)) {
+      return type.members.flatMap((member) =>
+        (ts.isPropertySignature(member) || ts.isIndexSignatureDeclaration(member)) && member.type
+          ? this.extractStringLiterals(member.type, sourceFile)
+          : [],
+      )
+    }
+
+    if (ts.isTypeReferenceNode(type) && type.typeName.getText(sourceFile) === 'Record' && type.typeArguments) {
+      return type.typeArguments.slice(1).flatMap((valueType) => this.extractStringLiterals(valueType, sourceFile))
+    }
+
+    return []
+  }
+
+  private async extractElementValuesFromInitializer(objectPosition: vscode.Position): Promise<string[]> {
+    try {
+      const definitions = await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
+        'vscode.executeDefinitionProvider',
+        this.document.uri,
+        objectPosition,
+      )
+
+      for (const definition of definitions ?? []) {
+        const name =
+          'targetUri' in definition
+            ? await this.findNodeAtLocation(
+                definition.targetUri,
+                (definition.targetSelectionRange ?? definition.targetRange).start,
+              )
+            : await this.findNodeAtLocation(definition.uri, definition.range.start)
+        const declaration = name?.parent
+
+        if (
+          declaration &&
+          ts.isVariableDeclaration(declaration) &&
+          declaration.initializer &&
+          ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const
+        ) {
+          const values = this.extractInitializerValues(declaration.initializer)
+          if (values.length > 0) {
+            return values
+          }
+        }
+      }
+
+      return []
+    } catch (error) {
+      debug('Element initializer error:', error)
+      return []
+    }
+  }
+
+  private extractInitializerValues(initializer: ts.Expression): string[] {
+    let expression = initializer
+    while (
+      ts.isAsExpression(expression) ||
+      ts.isSatisfiesExpression(expression) ||
+      ts.isParenthesizedExpression(expression)
+    ) {
+      expression = expression.expression
+    }
+
+    const elements: readonly ts.Node[] = ts.isObjectLiteralExpression(expression)
+      ? expression.properties.map((prop) => (ts.isPropertyAssignment(prop) ? prop.initializer : prop))
+      : ts.isArrayLiteralExpression(expression)
+        ? expression.elements
+        : []
+
+    // A partial list would pass for the full one, so anything non-literal defers to the type
+    return elements.every(ts.isStringLiteralLike) ? elements.map((element) => element.text) : []
+  }
+
+  private async findNodeAtLocation(uri: vscode.Uri, position: vscode.Position): Promise<ts.Node | undefined> {
+    const doc = await vscode.workspace.openTextDocument(uri)
+    const sourceFile = ts.createSourceFile(doc.fileName, doc.getText(), ts.ScriptTarget.Latest, true)
+
+    return this.findNodeAtPosition(sourceFile, doc.offsetAt(position))
   }
 
   private async tryTypeDefinitionProvider(position: vscode.Position): Promise<string[]> {
@@ -162,7 +292,7 @@ export class TypeResolver {
         }
 
         // Check if hover indicates a type reference that needs resolution
-        const hoverText = hover.contents.map((c) => (typeof c === 'string' ? c : c.value)).join('\n')
+        const hoverText = this.getHoverText(hover)
         const typeRefMatch = hoverText.match(/:\s*(\w+)(?:\.(\w+))?\s*$/m)
         if (typeRefMatch) {
           const typeName = typeRefMatch[1]
@@ -187,8 +317,17 @@ export class TypeResolver {
     }
   }
 
+  private getHoverText(hover: vscode.Hover): string {
+    return hover.contents.map((c) => (typeof c === 'string' ? c : c.value)).join('\n')
+  }
+
+  private extractHoverCodeBlocks(hover: vscode.Hover): string[] {
+    const blocks = this.getHoverText(hover).matchAll(/```(?:typescript|ts|javascript|js)\n([\s\S]*?)\n```/g)
+    return Array.from(blocks, (block) => block[1])
+  }
+
   private extractFromHover(hover: vscode.Hover): string[] {
-    const hoverText = hover.contents.map((c) => (typeof c === 'string' ? c : c.value)).join('\n')
+    const hoverText = this.getHoverText(hover)
 
     debug('Hover text:', hoverText)
 
@@ -197,21 +336,9 @@ export class TypeResolver {
       return []
     }
 
-    const codeBlocks = hoverText.match(/```(?:typescript|ts|javascript|js)\n([\s\S]*?)\n```/g)
-    if (!codeBlocks) {
-      return []
-    }
-
     const allLiterals = new Set<string>()
 
-    for (const block of codeBlocks) {
-      const codeMatch = block.match(/```(?:typescript|ts|javascript|js)\n([\s\S]*?)\n```/)
-      if (!codeMatch) {
-        continue
-      }
-
-      const code = codeMatch[1]
-
+    for (const code of this.extractHoverCodeBlocks(hover)) {
       // Extract string literals from union types: "a" | "b" | "c"
       const unionLiterals = code.match(/"([^"]+)"|'([^']+)'/g)
       if (unionLiterals && unionLiterals.length >= 1) {
@@ -243,15 +370,9 @@ export class TypeResolver {
     }
 
     try {
-      const doc = await vscode.workspace.openTextDocument(location.uri)
-      const text = doc.getText()
+      const node = await this.findNodeAtLocation(location.uri, location.range.start)
 
-      const sourceFile = ts.createSourceFile(doc.fileName, text, ts.ScriptTarget.Latest, true)
-
-      const offset = doc.offsetAt(location.range.start)
-      const node = this.findNodeAtPosition(sourceFile, offset)
-
-      return node ? this.extractValuesFromNode(node, sourceFile) : []
+      return node ? this.extractValuesFromNode(node, node.getSourceFile()) : []
     } catch (error) {
       debug('Extract from location error:', error)
       return []

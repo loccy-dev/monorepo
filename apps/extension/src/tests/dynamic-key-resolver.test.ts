@@ -86,6 +86,44 @@ suite('dynamic key resolver', function () {
     })
   }
 
+  const elementAccessCases: ResolveCase[] = [
+    {
+      name: 'record with widened values resolves to initializer values, not keys',
+      expression: 'STATUS_KEY[status]',
+      keypaths: ['status.queued', 'status.ready'],
+    },
+    { name: 'object without as const', expression: 'widened[direction]', keypaths: directions },
+    { name: 'quoted property names are not values', expression: 'events[event]', keypaths: cta },
+    {
+      name: 'large const object resolves every value',
+      expression: 'large[entry]',
+      keypaths: [
+        'eighth',
+        'eleventh',
+        'fifth',
+        'first',
+        'fourth',
+        'ninth',
+        'second',
+        'seventh',
+        'sixth',
+        'tenth',
+        'third',
+        'twelfth',
+      ].map((entry) => `section.entry.${entry}`),
+    },
+    { name: 'imported const object', expression: '`cta.${Action[action]}`', keypaths: cta },
+    { name: 'record with literal values on a property', expression: 'props.pages[page]', keypaths: pageTitles },
+    { name: 'record of plain strings stays unresolved', expression: 'untyped[page]', keypaths: [] },
+    { name: 'array without as const', expression: 'list[index]', keypaths: directions },
+  ]
+
+  for (const { name, expression, keypaths } of elementAccessCases) {
+    test(name, async () => {
+      assert.deepStrictEqual(await resolveKeypaths('element-access.tsx', expression), keypaths)
+    })
+  }
+
   test('const-object enum type resolves to object values, not property names', async () => {
     assert.deepStrictEqual(await resolveKeypaths('const-object-enum.tsx', '`cta.${action}`'), cta)
   })
