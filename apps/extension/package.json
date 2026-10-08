@@ -30,7 +30,8 @@
     "multilingual"
   ],
   "categories": [
-    "AI"
+    "Visualization",
+    "Other"
   ],
   "engines": {
     "vscode": "^1.86.0"
