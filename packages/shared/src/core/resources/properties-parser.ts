@@ -140,7 +140,8 @@ export class PropertiesParser {
   }
 
   updateValue(keypath: string, newValue: string): void {
-    ;(this.data as Record<string, unknown>)[keypath] = newValue
+    if (!newValue) this.deleteKeypath(keypath)
+    else (this.data as Record<string, unknown>)[keypath] = newValue
   }
 
   deleteKeypath(keypath: string): string | undefined {

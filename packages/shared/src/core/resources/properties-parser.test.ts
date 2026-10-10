@@ -28,6 +28,12 @@ describe('PropertiesParser', () => {
     expect(p.flatData['z']).toBe('ONE')
   })
 
+  it('updateValue with an empty value removes the key instead of leaving `key=` behind', () => {
+    const p = new PropertiesParser('a=1\nb=2\n', false)
+    p.updateValue('a', '')
+    expect(p.content).toBe('b=2\n')
+  })
+
   it('escapes separators/newlines on write', () => {
     const p = PropertiesParser.fromObject({ 'a.b': 'x\ny' }, { trailingNewLines: 1 })
     expect(p.content).toBe('a.b=x\\ny\n')

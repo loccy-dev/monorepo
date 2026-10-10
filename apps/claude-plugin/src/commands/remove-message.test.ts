@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { baseProject, cleanupProject, de, en } from '../test/project'
+import { baseProject, cleanupProject, de, en, makeProject, readProjectFile } from '../test/project'
 import { run } from '../test/run-cli'
 
 afterEach(cleanupProject)
@@ -22,6 +22,29 @@ files: locales/{de.json, en.json}`)
 files: locales/{de.json, en.json}`)
     expect(en()).toEqual({})
     expect(de()).toEqual({})
+  })
+
+  it('drops the whole line from .properties bundles, not just the value', async () => {
+    makeProject({
+      'loccy.yaml': `modules:
+  default:
+    framework: custom
+    translations:
+      glob: 'i18n/*.properties'
+      layout: 'messages_{locale}.properties'
+    usages:
+      include:
+        - 'src/**/*.ts'
+`,
+      'i18n/messages_en.properties': 'login.title=Sign in\nlogin.ok=Continue\n',
+      'i18n/messages_de.properties': 'login.title=Anmelden\nlogin.ok=Weiter\n',
+    })
+    const { out, err, code } = await run(['remove-message', 'login.title'])
+    expect({ code, err }).toEqual({ code: 0, err: '' })
+    expect(out).toBe(`removed: login.title
+files: i18n/{messages_de.properties, messages_en.properties}`)
+    expect(readProjectFile('i18n/messages_en.properties')).toBe('login.ok=Continue\n')
+    expect(readProjectFile('i18n/messages_de.properties')).toBe('login.ok=Weiter\n')
   })
 
   it('refuses the whole call when one key does not exist', async () => {

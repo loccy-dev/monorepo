@@ -158,6 +158,7 @@ export interface ResourceDocument {
   readonly content: string
   /** Flattened `{ "a.b.c": "value" }` view. */
   readonly flatData: Record<string, string>
+  /** Sets the value; an empty value removes the keypath entirely. */
   updateValue(keypath: string, newValue: string): void
   deleteKeypath(keypath: string): string | undefined
   renameKeypath(oldKeypath: string, newKeypath: string): void
